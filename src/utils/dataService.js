@@ -3,13 +3,15 @@ const API_BASE_URL = 'http://localhost:8094/v1';
 
 // Servicio para manejar errores de API
 const handleApiError = (error, operation) => {
-  console.error(`Error en ${operation}:`, error);
+  console.error(`❌ Error en ${operation}:`, error);
   throw new Error(`Error al ${operation}: ${error.message}`);
 };
 
-// Función genérica para llamadas API
+// Función genérica para llamadas API - MEJORADA
 const apiCall = async (endpoint, options = {}) => {
   try {
+    console.log(`🌐 Llamando API: ${endpoint}`);
+    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -19,11 +21,27 @@ const apiCall = async (endpoint, options = {}) => {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Obtener más detalles del error
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+        console.error('📋 Detalles del error del servidor:', errorData);
+      } catch (parseError) {
+        // Si no se puede parsear como JSON, usar el texto de la respuesta
+        const errorText = await response.text();
+        errorMessage = errorText || errorMessage;
+        console.error('📋 Respuesta de error del servidor:', errorText);
+      }
+      throw new Error(errorMessage);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log(`✅ API ${endpoint} respondió exitosamente:`, result);
+    return result;
+    
   } catch (error) {
+    console.error(`💥 Error completo en API call ${endpoint}:`, error);
     handleApiError(error, `llamar ${endpoint}`);
   }
 };
@@ -138,7 +156,7 @@ export const dataService = {
     });
   },
 
-  // ÓRDENES
+  // ÓRDENES - MEJORADO
   getOrdenes: async () => {
     return await apiCall('/ordenes', { method: 'GET' });
   },
@@ -148,6 +166,7 @@ export const dataService = {
   },
 
   addOrden: async (orden) => {
+    console.log('📦 Enviando orden COMPLETA al backend:', JSON.stringify(orden, null, 2));
     return await apiCall('/addOrden', {
       method: 'POST',
       body: JSON.stringify(orden),

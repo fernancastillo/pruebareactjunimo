@@ -103,65 +103,61 @@ const Carrito = () => {
     setShowClearCartModal(false);
   };
 
- // ✅ FUNCIÓN ACTUALIZADA - ALERTA SIMPLE Y REDIRECCIÓN AL TOP DEL INDEX
-const handleCheckout = (totalFinal, discountCode = '', paymentData = null) => {
-  if (!user) {
-    navigate('/login');
-    return;
-  }
-
-  try {
-    console.log('✅ Procesando compra...');
-    console.log('💰 Total final:', totalFinal);
-    if (discountCode) {
-      console.log('🎫 Código de descuento:', discountCode);
-    }
-    if (paymentData) {
-      console.log('💳 Datos de pago:', paymentData.transactionId);
+  // GUARDA EN BASE DE DATOS - CORREGIDO
+  const handleCheckout = async (totalFinal, discountCode = '', paymentData = null) => {
+    if (!user) {
+      navigate('/login');
+      return;
     }
 
-    // 1. CREAR NUEVA ORDEN usando orderCreationService
-    const nuevaOrden = orderCreationService.createOrder(user, cartItems, totalFinal, discountCode, paymentData);
-    console.log('📦 Nueva orden creada:', nuevaOrden);
+    try {
+      console.log('=== INICIANDO CHECKOUT ===');
+      console.log('👤 Usuario:', user);
+      console.log('💰 Total final:', totalFinal);
+      console.log('📦 Productos en carrito:', cartItems);
+      console.log('💳 Datos pago:', paymentData);
 
-    // 2. GUARDAR ORDEN EN LOCALSTORAGE
-    const ordenGuardada = orderCreationService.saveOrder(nuevaOrden);
-    
-    if (!ordenGuardada) {
-      throw new Error('No se pudo guardar la orden');
-    }
+      if (cartItems.length === 0) {
+        throw new Error('El carrito está vacío');
+      }
 
-    // 3. ACTUALIZAR STOCK (procesar checkout)
-    cartService.processCheckout(cartItems, totalFinal);
+      // 1. PROCESAR COMPRA COMPLETA (con estructura corregida)
+      const resultadoCompra = await orderCreationService.processCompletePurchase(
+        user, 
+        cartItems,
+        totalFinal, 
+        discountCode, 
+        paymentData
+      );
 
-    // 4. VACIAR CARRITO
-    cartService.clearCart();
-    setCartItems([]);
-    window.dispatchEvent(new Event('cartUpdated'));
+      if (!resultadoCompra.success) {
+        throw new Error(resultadoCompra.error);
+      }
 
-    // 5. ✅ MOSTRAR ALERTA DE ÉXITO Y REDIRIGIR AL TOP DEL INDEX
-    console.log('🎉 Pago exitoso, mostrando alerta...');
-    
-    alert('✅ ¡Pago exitoso! Tu compra ha sido procesada correctamente.\n\n' +
-          `📦 Número de orden: ${nuevaOrden.numeroOrden}\n` +
-          `💰 Total pagado: $${totalFinal.toLocaleString('es-CL')}\n` +
-          `🔒 ID de transacción: ${paymentData?.transactionId || 'Procesada'}\n\n` +
-          'Serás redirigido a la página principal...');
-    
-    // Redirigir al index y hacer scroll al top
-    setTimeout(() => {
-      navigate('/index', { replace: true });
-      // Forzar scroll al top después de la navegación
+      const ordenCreada = resultadoCompra.order;
+
+      // 2. VACIAR CARRITO
+      cartService.clearCart();
+      setCartItems([]);
+      window.dispatchEvent(new Event('cartUpdated'));
+
+      // 3. MOSTRAR ÉXITO
+      alert('✅ ¡Pago exitoso! Tu compra ha sido procesada correctamente.\n\n' +
+            `📦 Número de orden: ${ordenCreada.numeroOrden}\n` +
+            `💰 Total pagado: $${totalFinal.toLocaleString('es-CL')}\n\n` +
+            'Serás redirigido a la página principal...');
+      
       setTimeout(() => {
-        window.scrollTo(0, 0);
-      }, 100);
-    }, 500);
+        navigate('/index', { replace: true });
+        setTimeout(() => window.scrollTo(0, 0), 100);
+      }, 500);
 
-  } catch (error) {
-    console.error('❌ Error en checkout:', error);
-    alert('❌ Error al procesar la compra: ' + error.message);
-  }
-};
+    } catch (error) {
+      console.error('❌ ERROR FINAL EN CHECKOUT:', error);
+      alert('❌ Error al procesar la compra: ' + error.message);
+      console.log('🛒 Carrito conservado por error en BD');
+    }
+  };
 
   const total = cartService.calculateTotal(cartItems);
 

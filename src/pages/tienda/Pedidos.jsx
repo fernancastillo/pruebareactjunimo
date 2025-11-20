@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Spinner, Alert, Card } from 'react-bootstrap';
+import { Container, Row, Col, Button, Spinner, Alert } from 'react-bootstrap';
 import { orderService } from '../../utils/tienda/orderService';
 import { authService } from '../../utils/tienda/authService';
 import { Link } from 'react-router-dom';
@@ -12,7 +12,6 @@ const Pedidos = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [debugInfo, setDebugInfo] = useState('');
-  const [allOrders, setAllOrders] = useState([]);
 
   useEffect(() => {
     const loadUserOrders = async () => {
@@ -32,24 +31,27 @@ const Pedidos = () => {
       console.log('RUN del usuario a buscar:', userRun);
 
       try {
-        // Obtener todas las órdenes para diagnóstico
-        const allOrders = await orderService.getAllOrders();
-        setAllOrders(allOrders);
-        
         // Obtener órdenes del usuario
         const userOrders = await orderService.getUserOrders(userRun);
         console.log('Órdenes encontradas para el usuario:', userOrders);
 
         if (userOrders.length === 0) {
-          setDebugInfo(`No se encontraron órdenes para el RUN: ${userRun}. Mostrando todas las órdenes para diagnóstico.`);
-          // TEMPORAL: Mostrar todas las órdenes para debugging
-          setOrders(allOrders.slice(0, 3)); // Mostrar solo 3 para no saturar
+          setDebugInfo(`No se encontraron órdenes para el usuario ${currentUser.nombre} (RUN: ${userRun}).`);
         } else {
-          const sortedOrders = userOrders
+          // Obtener detalles completos para cada orden
+          const ordersWithDetails = await Promise.all(
+            userOrders.map(async (order) => {
+              const orderWithDetails = await orderService.getOrderWithDetails(order.numeroOrden);
+              return orderWithDetails || order; // Fallback a la orden básica si hay error
+            })
+          );
+
+          // Ordenar por fecha (más reciente primero)
+          const sortedOrders = ordersWithDetails
             .map(order => ({
               ...order,
               productos: order.productos || [],
-              fecha: order.fecha || new Date().toLocaleDateString('es-CL')
+              fecha: order.fecha || 'Fecha no disponible'
             }))
             .sort((a, b) => {
               try {
@@ -147,41 +149,25 @@ const Pedidos = () => {
         
         {/* Información de diagnóstico */}
         {debugInfo && (
-          <Alert variant="warning" className="mb-4">
-            <Alert.Heading>Diagnóstico del Sistema</Alert.Heading>
+          <Alert variant="info" className="mb-4">
+            <Alert.Heading>Información</Alert.Heading>
             {debugInfo}
-            <hr />
-            <div className="small">
-              <strong>Usuario:</strong> {user.nombre} (RUN: {user.run || user.id})<br />
-              <strong>Total de órdenes en BD:</strong> {allOrders.length}<br />
-              <strong>Órdenes que coinciden:</strong> {orders.length}
-            </div>
           </Alert>
         )}
         
         {orders.length === 0 ? (
           <EmptyOrders user={user} />
         ) : (
-          <>
-            {/* Mostrar advertencia si estamos mostrando órdenes de otros usuarios */}
-            {debugInfo && (
-              <Alert variant="info" className="mb-4">
-                <strong>Nota:</strong> Se están mostrando órdenes de ejemplo para diagnóstico. 
-                En producción, solo se mostrarán tus órdenes.
-              </Alert>
-            )}
-            
-            <Row>
-              <Col>
-                {orders.map(order => (
-                  <OrderCard 
-                    key={order.numeroOrden} 
-                    order={order} 
-                  />
-                ))}
-              </Col>
-            </Row>
-          </>
+          <Row>
+            <Col>
+              {orders.map(order => (
+                <OrderCard 
+                  key={order.numeroOrden} 
+                  order={order} 
+                />
+              ))}
+            </Col>
+          </Row>
         )}
       </Container>
     </div>
