@@ -1,69 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Form, Button, Badge, Modal } from 'react-bootstrap';
+import { Row, Col, Form, Button, Badge, Modal, Spinner, Alert } from 'react-bootstrap';
+import { cartService } from '../../../utils/tienda/cartService';
 
 const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
-  const [stockReal, setStockReal] = useState(item.stock);
+  const [stockReal, setStockReal] = useState(item.stock || 0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [quantityInput, setQuantityInput] = useState(item.cantidad.toString());
+  const [loading, setLoading] = useState(false);
+  const [verifyingStock, setVerifyingStock] = useState(false);
+  const [stockError, setStockError] = useState('');
 
-  // Sincronizar quantityInput cuando cambia la cantidad del item
   useEffect(() => {
     setQuantityInput(item.cantidad.toString());
   }, [item.cantidad]);
 
-  // Verificar stock real
   useEffect(() => {
-    const verificarStock = () => {
+    const verificarStock = async () => {
       try {
-        const productos = JSON.parse(localStorage.getItem('app_productos')) || [];
-        const productoActual = productos.find(p => p.codigo === item.codigo);
-        if (productoActual) {
-          setStockReal(productoActual.stock);
+        setVerifyingStock(true);
+        setStockError('');
+        
+        const stockActual = await cartService.getCurrentStock(item.codigo);
+        
+        const stockFinal = stockActual !== undefined && stockActual !== null ? stockActual : 0;
+        setStockReal(stockFinal);
+        
+        if (stockFinal === 0) {
+          setStockError('Producto sin stock disponible');
+        } else if (item.cantidad > stockFinal) {
+          setStockError(`Cantidad en carrito (${item.cantidad}) excede stock disponible (${stockFinal})`);
         }
+        
       } catch (error) {
-        console.error('Error al verificar stock:', error);
+        setStockError('Error verificando stock');
+        const fallbackStock = item.stockActual || item.stock || 0;
+        setStockReal(fallbackStock);
+      } finally {
+        setVerifyingStock(false);
       }
     };
 
     verificarStock();
-    window.addEventListener('cartUpdated', verificarStock);
+    
+    const handleStockUpdate = () => {
+      verificarStock();
+    };
+
+    window.addEventListener('cartUpdated', handleStockUpdate);
+    window.addEventListener('stockUpdated', handleStockUpdate);
     
     return () => {
-      window.removeEventListener('cartUpdated', verificarStock);
+      window.removeEventListener('cartUpdated', handleStockUpdate);
+      window.removeEventListener('stockUpdated', handleStockUpdate);
     };
-  }, [item.codigo]);
+  }, [item.codigo, item.nombre, item.cantidad, item.stockActual, item.stock]);
 
-  const handleQuantityChange = (newQuantity) => {
-    if (newQuantity >= 0 && newQuantity <= stockReal) {
-      onUpdateQuantity(item.codigo, newQuantity);
-    } else {
-      alert(`❌ Solo hay ${stockReal} unidades disponibles`);
+  const handleQuantityChange = async (newQuantity) => {
+    if (loading) return;
+    
+    try {
+      setLoading(true);
+      setStockError('');
+      
+      if (newQuantity < 1) {
+        setStockError('La cantidad debe ser al menos 1');
+        return;
+      }
+      
+      await onUpdateQuantity(item.codigo, newQuantity);
+      
+    } catch (error) {
+      setStockError(error.message);
+      const stockActual = await cartService.getCurrentStock(item.codigo);
+      setStockReal(stockActual !== undefined && stockActual !== null ? stockActual : 0);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleInputChange = (e) => {
     const value = e.target.value;
     setQuantityInput(value);
+    setStockError('');
     
-    // Si el input está vacío, no hacer nada (mantener el valor anterior)
     if (value === '') {
       return;
     }
     
     const newQuantity = parseInt(value) || 0;
     
-    // Validar que la cantidad sea válida
-    if (newQuantity >= 0 && newQuantity <= stockReal) {
-      onUpdateQuantity(item.codigo, newQuantity);
+    if (newQuantity >= 1 && newQuantity <= stockReal) {
+      handleQuantityChange(newQuantity);
     } else if (newQuantity > stockReal) {
-      alert(`❌ Solo hay ${stockReal} unidades disponibles`);
-      // Restaurar el valor anterior
+      setStockError(`Solo hay ${stockReal} unidades disponibles de ${item.nombre}`);
+      setQuantityInput(item.cantidad.toString());
+    } else if (newQuantity < 1) {
+      setStockError('La cantidad debe ser al menos 1');
       setQuantityInput(item.cantidad.toString());
     }
   };
 
   const handleInputBlur = (e) => {
-    // Si el input queda vacío, restaurar la cantidad anterior
     if (e.target.value === '') {
       setQuantityInput(item.cantidad.toString());
     }
@@ -78,26 +115,70 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
     setShowDeleteModal(false);
   };
 
-  const subtotal = item.precio * item.cantidad;
+  const decreaseQuantity = () => {
+    if (item.cantidad > 1) {
+      handleQuantityChange(item.cantidad - 1);
+    } else {
+      handleRemoveClick();
+    }
+  };
+
+  const increaseQuantity = () => {
+    handleQuantityChange(item.cantidad + 1);
+  };
+
+  const precioUnitario = item.precioOferta || item.precio;
+  const subtotal = precioUnitario * item.cantidad;
 
   return (
     <>
       <Row 
-        className="align-items-center py-3 border-bottom mx-0 rounded-4 mb-3 border-3 border-dark"
+        className="align-items-center py-3 border-bottom mx-0 rounded-4 mb-3 border-3 border-dark position-relative"
         style={{
           backgroundColor: '#87CEEB',
           transition: 'all 0.3s ease',
-          fontFamily: "'Lato', sans-serif"
+          fontFamily: "'Lato', sans-serif",
+          opacity: loading ? 0.6 : 1
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.3)';
+          if (!loading) {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.3)';
+          }
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'translateY(0)';
           e.currentTarget.style.boxShadow = 'none';
         }}
       >
+        {/* BOTÓN ELIMINAR - EN ESQUINA SUPERIOR DERECHA */}
+        <Button 
+          variant="outline-danger" 
+          size="sm"
+          className="position-absolute top-0 end-0 border-2 fw-bold"
+          style={{
+            backgroundColor: '#FFB6C1',
+            color: '#000000',
+            borderColor: '#dc3545',
+            width: '30px',
+            height: '30px',
+            borderRadius: '50%',
+            transform: 'translate(25%, -25%)',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            fontSize: '12px'
+          }}
+          onClick={handleRemoveClick}
+          disabled={loading}
+          title="Eliminar producto"
+        >
+          ✕
+        </Button>
+
+        {/* Imagen del producto */}
         <Col md={2}>
           <img 
             src={item.imagen} 
@@ -114,7 +195,8 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
           />
         </Col>
         
-        <Col md={3}> {/* Cambiado de md={4} a md={3} para dar más espacio */}
+        {/* Información del producto */}
+        <Col md={3}>
           <h6 
             className="mb-1 fw-bold"
             style={{ color: '#000000' }}
@@ -132,28 +214,61 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
           >
             {item.categoria}
           </Badge>
-          {stockReal < item.stock_critico && (
+          
+          {item.enOferta && (
+            <Badge bg="danger" className="ms-1 border-2 border-dark">
+              Oferta -{item.descuento}%
+            </Badge>
+          )}
+          
+          {stockReal < 10 && stockReal > 0 && (
             <Badge bg="warning" text="dark" className="ms-1 border-2 border-dark">
-              ⚠️ Stock Bajo
+              Stock Bajo
+            </Badge>
+          )}
+          {stockReal === 0 && (
+            <Badge bg="danger" className="ms-1 border-2 border-dark">
+              Sin Stock
             </Badge>
           )}
         </Col>
         
+        {/* Precio unitario */}
         <Col md={2}>
           <div className="text-center">
-            <span 
-              className="fw-bold"
-              style={{ 
-                color: '#000000',
-                fontSize: '1.1rem'
-              }}
-            >
-              ${item.precio.toLocaleString('es-CL')}
-            </span>
+            {item.enOferta ? (
+              <div>
+                <span 
+                  className="text-muted text-decoration-line-through small d-block"
+                  style={{ color: '#000000' }}
+                >
+                  ${item.precioOriginal?.toLocaleString('es-CL') || item.precio.toLocaleString('es-CL')}
+                </span>
+                <span 
+                  className="fw-bold text-danger"
+                  style={{ 
+                    fontSize: '1.1rem'
+                  }}
+                >
+                  ${precioUnitario.toLocaleString('es-CL')}
+                </span>
+              </div>
+            ) : (
+              <span 
+                className="fw-bold"
+                style={{ 
+                  color: '#000000',
+                  fontSize: '1.1rem'
+                }}
+              >
+                ${precioUnitario.toLocaleString('es-CL')}
+              </span>
+            )}
           </div>
         </Col>
         
-        <Col md={2}>
+        {/* Control de cantidad */}
+        <Col md={3}>
           <div className="d-flex align-items-center justify-content-center">
             <Button 
               variant="outline-dark" 
@@ -161,28 +276,37 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
               className="border-3 fw-bold"
               style={{
                 backgroundColor: '#dedd8ff5',
-                color: '#000000'
+                color: '#000000',
+                minWidth: '40px'
               }}
-              onClick={() => handleQuantityChange(item.cantidad - 1)}
-              disabled={item.cantidad <= 1}
+              onClick={decreaseQuantity}
+              disabled={item.cantidad <= 1 || loading || stockReal === 0}
             >
               -
             </Button>
             
-            <Form.Control
-              type="number"
-              value={quantityInput}
-              onChange={handleInputChange}
-              onBlur={handleInputBlur}
-              min="1"
-              max={stockReal}
-              className="mx-2 text-center border-3 border-dark fw-bold"
-              style={{ 
-                width: '70px',
-                color: '#000000',
-                backgroundColor: '#FFFFFF'
-              }}
-            />
+            <div className="position-relative mx-2">
+              <Form.Control
+                type="number"
+                value={quantityInput}
+                onChange={handleInputChange}
+                onBlur={handleInputBlur}
+                min="1"
+                max={stockReal}
+                disabled={loading || stockReal === 0}
+                className="text-center border-3 border-dark fw-bold"
+                style={{ 
+                  width: '70px',
+                  color: '#000000',
+                  backgroundColor: '#FFFFFF'
+                }}
+              />
+              {loading && (
+                <div className="position-absolute top-50 start-50 translate-middle">
+                  <Spinner animation="border" size="sm" />
+                </div>
+              )}
+            </div>
             
             <Button 
               variant="outline-dark" 
@@ -190,51 +314,60 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
               className="border-3 fw-bold"
               style={{
                 backgroundColor: '#dedd8ff5',
-                color: '#000000'
+                color: '#000000',
+                minWidth: '40px'
               }}
-              onClick={() => handleQuantityChange(item.cantidad + 1)}
-              disabled={item.cantidad >= stockReal}
+              onClick={increaseQuantity}
+              disabled={item.cantidad >= stockReal || loading || stockReal === 0}
             >
               +
             </Button>
           </div>
-          <div 
-            className="text-center small mt-1 fw-semibold"
-            style={{ color: '#000000' }}
-          >
-            Stock disponible: {stockReal}
+          
+          <div className="text-center small mt-1">
+            {verifyingStock ? (
+              <span className="text-warning fw-semibold">
+                <Spinner animation="border" size="sm" /> Verificando stock...
+              </span>
+            ) : (
+              <span 
+                className={`fw-semibold ${
+                  stockReal === 0 ? 'text-danger' : 
+                  stockReal < 5 ? 'text-warning' : 'text-success'
+                }`}
+              >
+                {stockReal === 0 ? 'Sin stock' : `Stock: ${stockReal} disponible${stockReal !== 1 ? 's' : ''}`}
+              </span>
+            )}
           </div>
+          
+          {stockError && (
+            <Alert 
+              variant="danger" 
+              className="small mt-2 p-2 border-2 border-dark"
+              style={{
+                backgroundColor: '#FFB6C1',
+                color: '#000000',
+                fontWeight: '600'
+              }}
+            >
+              {stockError}
+            </Alert>
+          )}
         </Col>
         
-        <Col md={2}> {/* Cambiado de md={1} a md={2} para más espacio */}
+        {/* Subtotal - AHORA CON ESPACIO LIBRE */}
+        <Col md={2}>
           <div 
             className="text-center fw-bold"
             style={{ 
               color: '#000000',
               fontSize: '1.1rem',
-              minWidth: '100px' /* Asegura que tenga suficiente ancho */
+              minWidth: '100px'
             }}
           >
             ${subtotal.toLocaleString('es-CL')}
           </div>
-        </Col>
-        
-        <Col md={1}>
-          <Button 
-            variant="outline-danger" 
-            size="sm"
-            className="border-3 fw-bold"
-            style={{
-              backgroundColor: '#dedd8ff5',
-              color: '#000000',
-              borderColor: '#dc3545',
-              minWidth: '50px' /* Ancho mínimo para el botón */
-            }}
-            onClick={handleRemoveClick}
-            title="Eliminar producto"
-          >
-            🗑️
-          </Button>
         </Col>
       </Row>
 
@@ -254,7 +387,7 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
         >
           <Modal.Title className="fw-bold" style={{ color: '#000000' }}>
             <span style={{ fontFamily: "'Indie Flower', cursive" }}>
-              🗑️ Confirmar Eliminación
+              Confirmar Eliminación
             </span>
           </Modal.Title>
         </Modal.Header>

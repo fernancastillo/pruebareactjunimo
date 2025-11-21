@@ -1,17 +1,8 @@
 // utils/dataService.js
 const API_BASE_URL = 'http://localhost:8094/v1';
 
-// Servicio para manejar errores de API
-const handleApiError = (error, operation) => {
-  console.error(`❌ Error en ${operation}:`, error);
-  throw new Error(`Error al ${operation}: ${error.message}`);
-};
-
-// Función genérica para llamadas API - MEJORADA
 const apiCall = async (endpoint, options = {}) => {
   try {
-    console.log(`🌐 Llamando API: ${endpoint}`);
-    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -21,42 +12,40 @@ const apiCall = async (endpoint, options = {}) => {
     });
 
     if (!response.ok) {
-      // Obtener más detalles del error
-      let errorMessage = `HTTP error! status: ${response.status}`;
+      let errorMessage = `Error HTTP ${response.status}`;
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;
-        console.error('📋 Detalles del error del servidor:', errorData);
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        }
       } catch (parseError) {
-        // Si no se puede parsear como JSON, usar el texto de la respuesta
         const errorText = await response.text();
         errorMessage = errorText || errorMessage;
-        console.error('📋 Respuesta de error del servidor:', errorText);
       }
       throw new Error(errorMessage);
     }
 
-    const result = await response.json();
-    console.log(`✅ API ${endpoint} respondió exitosamente:`, result);
-    return result;
+    try {
+      const result = await response.json();
+      return result;
+    } catch (jsonError) {
+      return { success: true };
+    }
     
   } catch (error) {
-    console.error(`💥 Error completo en API call ${endpoint}:`, error);
-    handleApiError(error, `llamar ${endpoint}`);
+    throw new Error(`Error al llamar ${endpoint}: ${error.message}`);
   }
 };
 
 export const dataService = {
   initializeData: () => {
-    console.log('✅ Usando base de datos Oracle Cloud');
     return true;
   },
 
   // PRODUCTOS
   getProductos: async () => {
-    const productos = await apiCall('/productos', { method: 'GET' });
-    console.log('📦 Productos crudos desde BD:', productos);
-    return productos;
+    return await apiCall('/productos', { method: 'GET' });
   },
 
   getProductoById: async (codigo) => {
@@ -156,7 +145,7 @@ export const dataService = {
     });
   },
 
-  // ÓRDENES - MEJORADO
+  // ÓRDENES
   getOrdenes: async () => {
     return await apiCall('/ordenes', { method: 'GET' });
   },
@@ -166,7 +155,6 @@ export const dataService = {
   },
 
   addOrden: async (orden) => {
-    console.log('📦 Enviando orden COMPLETA al backend:', JSON.stringify(orden, null, 2));
     return await apiCall('/addOrden', {
       method: 'POST',
       body: JSON.stringify(orden),
@@ -200,10 +188,9 @@ export const dataService = {
     });
   },
 
-  // ✅ MÉTODOS ESPECIALES (adaptados para BD)
+  // MÉTODOS ESPECIALES
   getProductosPorCategoria: async (categoriaNombre) => {
     try {
-      // Primero obtener todas las categorías para encontrar el ID
       const categorias = await dataService.getCategorias();
       const categoria = categorias.find(cat => cat.nombre === categoriaNombre);
       
@@ -212,7 +199,6 @@ export const dataService = {
       }
       return [];
     } catch (error) {
-      console.error('Error en getProductosPorCategoria:', error);
       return [];
     }
   },
@@ -239,7 +225,6 @@ export const dataService = {
         }
       };
     } catch (error) {
-      console.error('Error verificando estado de datos:', error);
       return {
         productos: { count: 0, loaded: false },
         usuarios: { count: 0, loaded: false },

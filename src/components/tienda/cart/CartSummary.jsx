@@ -19,25 +19,13 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
   
   const isCartEmpty = cartItems.length === 0;
 
-  // Calcular envío
   const envio = cartService.calculateShipping(total);
-  
-  // Verificar si tiene descuento DUOC
   const hasDuocDiscount = cartService.hasDuocDiscount(user);
-  
-  // Calcular descuento DUOC
   const duocDiscount = hasDuocDiscount ? cartService.calculateDuocDiscount(total) : 0;
-  
-  // Calcular subtotal (sin envío)
   const subtotal = total;
-  
-  // Calcular descuento por código
   const codeDiscount = appliedDiscount ? cartService.calculateDiscount(subtotal, appliedDiscount.code) : 0;
-  
-  // Calcular total final
   const totalFinal = cartService.calculateFinalTotal(subtotal, envio, duocDiscount, appliedDiscount?.code);
 
-  // Aplicar código de descuento
   const handleApplyDiscount = () => {
     if (!discountCode.trim()) {
       setDiscountError('Por favor ingresa un código de descuento');
@@ -57,36 +45,27 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
     }
   };
 
-  // Remover código de descuento
   const handleRemoveDiscount = () => {
     setAppliedDiscount(null);
     setDiscountCode('');
     setDiscountError('');
   };
 
-  // Abrir modal de confirmación de pago
   const handleOpenPaymentModal = () => {
-    console.log('🔍 CartSummary - Abriendo modal de pago');
     setShowPaymentModal(true);
   };
 
-  // Continuar al pago con tarjeta
   const handleContinueToPayment = () => {
-    console.log('🔍 CartSummary - Continuando a pago con tarjeta');
     setShowPaymentModal(false);
     setShowCreditCardModal(true);
   };
 
-  // Procesar pago exitoso
   const handlePaymentSuccess = (paymentData) => {
-    console.log('🔍 CartSummary - Pago exitoso, llamando onCheckout');
     setShowCreditCardModal(false);
     
-    // ✅ Asegurarse de que onCheckout se llame correctamente
     if (typeof onCheckout === 'function') {
       onCheckout(totalFinal, appliedDiscount?.code, paymentData);
     } else {
-      console.error('❌ onCheckout no es una función');
       alert('Error: No se pudo procesar el pago. Intenta nuevamente.');
     }
   };
@@ -129,7 +108,7 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
                 fontWeight: '600'
               }}
             >
-              ⚠️ Algunos productos tienen stock limitado
+              Algunos productos tienen stock limitado
             </Alert>
           )}
 
@@ -143,17 +122,16 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
                 fontWeight: '600'
               }}
             >
-              🎓 ¡Descuento DUOC activado! 20% de descuento adicional
+              ¡Descuento DUOC activado! 20% de descuento adicional
             </Alert>
           )}
           
-          {/* Campo para código de descuento */}
           <div className="mb-3">
             <label 
               className="form-label fw-bold mb-2"
               style={{ color: '#000000' }}
             >
-              💰 Código de Descuento
+              Código de Descuento
             </label>
             {!appliedDiscount ? (
               <InputGroup>
@@ -217,7 +195,7 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
                 className="text-danger small mt-1 fw-bold"
                 style={{ color: '#dc3545' }}
               >
-                ❌ {discountError}
+                {discountError}
               </div>
             )}
           </div>
@@ -230,7 +208,6 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
             <span style={{ color: '#000000' }}>${subtotal.toLocaleString('es-CL')}</span>
           </div>
 
-          {/* Descuento DUOC */}
           {hasDuocDiscount && (
             <div 
               className="d-flex justify-content-between mb-2 fw-semibold"
@@ -246,7 +223,6 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
             </div>
           )}
 
-          {/* Descuento por código */}
           {appliedDiscount && (
             <div 
               className="d-flex justify-content-between mb-2 fw-semibold"
@@ -270,7 +246,7 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
               Envío
               {envio === 0 ? (
                 <Badge bg="success" className="ms-2 border-2 border-dark" style={{ backgroundColor: '#90EE90', color: '#000000' }}>
-                  🚚 Gratis
+                  Gratis
                 </Badge>
               ) : (
                 <Badge bg="secondary" className="ms-2 border-2 border-dark" style={{ backgroundColor: '#dedd8ff5', color: '#000000' }}>
@@ -283,7 +259,6 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
             </span>
           </div>
 
-          {/* Información de envío gratuito */}
           {total < 30000 && (
             <div 
               className="small mb-3 p-2 rounded-3 border-2 border-dark text-center"
@@ -293,7 +268,7 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
                 fontWeight: '500'
               }}
             >
-              <span style={{ color: '#FF6B6B' }}>💡</span> Agrega ${(30000 - total).toLocaleString('es-CL')} más para envío gratis
+              Agrega ${(30000 - total).toLocaleString('es-CL')} más para envío gratis
             </div>
           )}
           
@@ -309,7 +284,6 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
             </strong>
           </div>
 
-          {/* Ahorro total */}
           {(hasDuocDiscount || envio === 0 || appliedDiscount) && (
             <div 
               className="text-center p-2 rounded-3 border-2 border-dark mb-3"
@@ -319,7 +293,7 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
                 fontWeight: '600'
               }}
             >
-              <span style={{ color: '#FFD700' }}>💰</span> Total ahorrado: 
+              Total ahorrado: 
               ${(duocDiscount + codeDiscount + (envio === 0 ? 3990 : 0)).toLocaleString('es-CL')}
             </div>
           )}
@@ -334,7 +308,7 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
                 fontWeight: '600'
               }}
             >
-              💡 Inicia sesión para proceder con la compra
+              Inicia sesión para proceder con la compra
             </Alert>
           ) : null}
           
@@ -397,7 +371,6 @@ const CartSummary = ({ cartItems, total, onCheckout, user }) => {
         </Card.Body>
       </Card>
 
-      {/* Modales de pago */}
       <PaymentConfirmationModal
         show={showPaymentModal}
         onHide={() => setShowPaymentModal(false)}

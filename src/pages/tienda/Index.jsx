@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../components/tienda/ProductCard';
 import Filters from '../../components/tienda/Filters';
 import { authService } from '../../utils/tienda/authService';
-import { verificarStockDisponible, obtenerStockDisponible, getProductosConStockActual } from '../../utils/tienda/stockService';
+import { cartService } from '../../utils/tienda/cartService';
 import { ofertasConfig } from '../../utils/tienda/ofertasData';
 import { dataService } from '../../utils/dataService';
 
@@ -19,7 +19,7 @@ const Index = () => {
   const [error, setError] = useState(null);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [isAddingToCart, setIsAddingToCart] = useState({}); // Para prevenir clicks rápidos
+  const [isAddingToCart, setIsAddingToCart] = useState({});
 
   const navigate = useNavigate();
 
@@ -27,7 +27,17 @@ const Index = () => {
     return productos.filter(producto => producto.enOferta).length;
   };
 
+  const calcularStockDisponible = (producto, carritoActual) => {
+    const itemEnCarrito = carritoActual.find(item => item.codigo === producto.codigo);
+    const cantidadEnCarrito = itemEnCarrito ? itemEnCarrito.cantidad : 0;
+    const stockBase = producto.stock || producto.stockActual || 0;
+    
+    return Math.max(0, stockBase - cantidadEnCarrito);
+  };
+
   const adaptarProductosDesdeBD = (productosBD) => {
+    const carritoActual = cartService.getCart();
+    
     return productosBD.map(producto => {
       let categoriaNombre = producto.categoria;
       if (typeof producto.categoria === 'object' && producto.categoria !== null) {
@@ -36,6 +46,7 @@ const Index = () => {
 
       const stock = producto.stock || producto.stockActual || 0;
       const stockCritico = producto.stock_critico || producto.stockCritico || 5;
+      const stockDisponible = calcularStockDisponible(producto, carritoActual);
 
       let imagen = producto.imagen || producto.img || producto.url_imagen;
       if (!imagen) {
@@ -48,7 +59,7 @@ const Index = () => {
         categoria: categoriaNombre,
         stock: stock,
         stock_critico: stockCritico,
-        stock_disponible: stock,
+        stock_disponible: stockDisponible,
         enOferta: false,
         precioOferta: null,
         descuento: 0
@@ -131,12 +142,59 @@ const Index = () => {
     }
   };
 
-  // SOLO cargar productos una vez al inicio
+  const actualizarStockProducto = (productoCodigo) => {
+    setProducts(prevProducts => {
+      const carritoActual = cartService.getCart();
+      
+      return prevProducts.map(producto => {
+        if (producto.codigo === productoCodigo) {
+          const stockDisponible = calcularStockDisponible(producto, carritoActual);
+          return {
+            ...producto,
+            stock_disponible: stockDisponible
+          };
+        }
+        return producto;
+      });
+    });
+  };
+
+  const actualizarStockDesdeCarrito = () => {
+    setProducts(prevProducts => {
+      const carritoActual = cartService.getCart();
+      
+      return prevProducts.map(producto => {
+        const stockDisponible = calcularStockDisponible(producto, carritoActual);
+        return {
+          ...producto,
+          stock_disponible: stockDisponible
+        };
+      });
+    });
+  };
+
   useEffect(() => {
     loadProductsWithStockAndOffers();
   }, []);
 
-  // Actualizar filtros sin recargar productos
+  useEffect(() => {
+    const handleCartUpdate = () => {
+      actualizarStockDesdeCarrito();
+    };
+
+    const handleStockUpdate = () => {
+      actualizarStockDesdeCarrito();
+    };
+
+    window.addEventListener('cartUpdated', handleCartUpdate);
+    window.addEventListener('stockUpdated', handleStockUpdate);
+    
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartUpdate);
+      window.removeEventListener('stockUpdated', handleStockUpdate);
+    };
+  }, []);
+
   useEffect(() => {
     let filtered = products;
     if (selectedCategory !== 'all') {
@@ -168,17 +226,14 @@ const Index = () => {
       return;
     }
 
-    // Prevenir clicks rápidos
     if (isAddingToCart[product.codigo]) {
       return;
     }
 
-    // Bloquear botón inmediatamente
     setIsAddingToCart(prev => ({ ...prev, [product.codigo]: true }));
 
     try {
-      // Verificar stock inmediatamente con datos locales primero
-      const carritoActual = JSON.parse(localStorage.getItem('junimoCart')) || [];
+      const carritoActual = cartService.getCart();
       const productoEnCarrito = carritoActual.find(item => item.codigo === product.codigo);
       const cantidadEnCarrito = productoEnCarrito ? productoEnCarrito.cantidad : 0;
       const stockDisponibleLocal = Math.max(0, product.stock - cantidadEnCarrito);
@@ -188,57 +243,21 @@ const Index = () => {
         return;
       }
 
-      // Verificación adicional con el servicio
-      const stockDisponible = await verificarStockDisponible(product.codigo, 1);
+      const stockDisponible = await cartService.checkAvailableStock(product.codigo, 1);
       
       if (!stockDisponible) {
-        const stockActual = await obtenerStockDisponible(product.codigo);
+        const stockActual = await cartService.getCurrentStock(product.codigo);
         alert(`No hay stock disponible de ${product.nombre}. Stock actual: ${stockActual}`);
         return;
       }
 
-      // Actualizar carrito localmente
-      let nuevoCarrito;
-      if (productoEnCarrito) {
-        nuevoCarrito = carritoActual.map(item =>
-          item.codigo === product.codigo
-            ? {
-                ...item,
-                cantidad: item.cantidad + 1,
-                subtotal: (item.cantidad + 1) * (product.precioOferta || product.precio)
-              }
-            : item
-        );
-      } else {
-        nuevoCarrito = [...carritoActual, {
-          ...product,
-          cantidad: 1,
-          subtotal: product.precioOferta || product.precio
-        }];
-      }
-
-      localStorage.setItem('junimoCart', JSON.stringify(nuevoCarrito));
-      
-      // Mostrar notificación INMEDIATAMENTE
+      await cartService.addToCart(product, 1);
+      actualizarStockProducto(product.codigo);
       showSuccessMessage(`${product.nombre} agregado al carrito`);
 
-      // Disparar eventos para actualizar otros componentes SIN recargar esta página
-      window.dispatchEvent(new Event('cartUpdated'));
-      window.dispatchEvent(new Event('stockUpdated'));
-
-      // Actualizar stock localmente en los productos sin recargar todo
-      setProducts(prevProducts => 
-        prevProducts.map(p => 
-          p.codigo === product.codigo 
-            ? { ...p, stock_disponible: Math.max(0, p.stock_disponible - 1) }
-            : p
-        )
-      );
-      
     } catch (error) {
       alert('Error al agregar producto al carrito: ' + error.message);
     } finally {
-      // Liberar bloqueo después de un tiempo
       setTimeout(() => {
         setIsAddingToCart(prev => ({ ...prev, [product.codigo]: false }));
       }, 1000);
@@ -341,6 +360,7 @@ const Index = () => {
 
       {!loading && !error && (
         <>
+          {/* SECCIÓN LOGO JUNIMO SHOP */}
           <section className="py-4 text-center">
             <Container>
               <Row className="justify-content-center">
@@ -359,6 +379,7 @@ const Index = () => {
             </Container>
           </section>
 
+          {/* SECCIÓN OFERTAS ACTIVAS */}
           {ofertasCount > 0 && (
             <section className="py-3">
               <Container>
@@ -399,6 +420,7 @@ const Index = () => {
             </section>
           )}
 
+          {/* SECCIÓN TÍTULO PRODUCTOS */}
           <section className="py-3 text-center">
             <Container>
               <Row className="justify-content-center">
@@ -433,6 +455,7 @@ const Index = () => {
             </Container>
           </section>
 
+          {/* SECCIÓN FILTROS Y PRODUCTOS */}
           <section className="py-4">
             <Container>
               <Filters

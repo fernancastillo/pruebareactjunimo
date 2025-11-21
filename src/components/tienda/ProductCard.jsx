@@ -2,57 +2,49 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { formatearPrecio, categoryIcons } from '../../utils/tienda/tiendaUtils';
 import { authService } from '../../utils/tienda/authService';
-import { getProductosConStockActual } from '../../utils/tienda/stockService';
-import { useNavigate } from 'react-router-dom'; // ✅ Importar useNavigate
+import { useNavigate } from 'react-router-dom';
 
 const ProductCard = ({ product, handleAddToCart, handleDetailsClick, isAddingToCart }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [stockDisponible, setStockDisponible] = useState(
     product.stock_disponible !== undefined ? product.stock_disponible : product.stock
   );
-  const navigate = useNavigate(); // ✅ Hook para navegación
+  const navigate = useNavigate();
 
-  // ✅ FUNCIÓN MEJORADA PARA EL BOTÓN DE DETALLES
   const handleDetailsClickWithScroll = (productCode) => {
-    // Primero llamar a la función original si existe
     if (handleDetailsClick) {
       handleDetailsClick(productCode);
     }
     
-    // Navegar a la página de detalle (por si acaso)
     navigate(`/producto/${productCode}`);
     
-    // Scroll al top después de un pequeño delay
     setTimeout(() => {
       window.scrollTo({ 
         top: 0, 
         behavior: 'smooth' 
       });
-    }, 50); // Aumenté el delay a 50ms para mayor seguridad
+    }, 50);
   };
 
-  // Solo escuchar eventos de actualización, no recargar todo
+  // ACTUALIZADO: Sincronización más robusta del stock
   useEffect(() => {
-    const actualizarStock = async () => {
-      try {
-        const productosActualizados = await getProductosConStockActual();
-        if (Array.isArray(productosActualizados)) {
-          const productoActualizado = productosActualizados.find(p => p.codigo === product.codigo);
-          if (productoActualizado) {
-            setStockDisponible(productoActualizado.stock_disponible);
-          }
-        }
-      } catch (error) {
-        setStockDisponible(product.stock || 0);
-      }
+    // Actualizar el stock inicial
+    setStockDisponible(product.stock_disponible);
+
+    const actualizarStock = () => {
+      // Forzar actualización del stock desde las props
+      setStockDisponible(product.stock_disponible);
     };
 
+    // Escuchar eventos de actualización
     window.addEventListener('stockUpdated', actualizarStock);
+    window.addEventListener('cartUpdated', actualizarStock);
     
     return () => {
       window.removeEventListener('stockUpdated', actualizarStock);
+      window.removeEventListener('cartUpdated', actualizarStock);
     };
-  }, [product.codigo, product.stock]);
+  }, [product.stock_disponible]); // Se ejecuta cuando cambia stock_disponible en las props
 
   useEffect(() => {
     setIsLoggedIn(!!authService.getCurrentUser());
@@ -120,7 +112,6 @@ const ProductCard = ({ product, handleAddToCart, handleDetailsClick, isAddingToC
     handleAddToCart(product);
   };
 
-  // ✅ FUNCIÓN ACTUALIZADA PARA EL BOTÓN DE DETALLES
   const handleDetailsClickLocal = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -282,7 +273,7 @@ const ProductCard = ({ product, handleAddToCart, handleDetailsClick, isAddingToC
               variant="outline-dark"
               size="sm"
               className="rounded fw-bold"
-              onClick={handleDetailsClickLocal} // ✅ Ahora usa la función corregida
+              onClick={handleDetailsClickLocal}
               style={{
                 border: '2px solid #000000',
                 color: '#000000',

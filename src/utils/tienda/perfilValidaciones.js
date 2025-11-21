@@ -1,5 +1,59 @@
-// Utilidades de validación para el perfil de usuario
+// utils/tienda/perfilValidaciones.js
+import { dataService } from '../dataService';
+
 export const perfilValidaciones = {
+  /**
+   * Verifica si un email ya existe en otro usuario (en la BD)
+   */
+  emailExisteEnOtroUsuario: async (email, usuarioActual) => {
+    try {
+      // Buscar usuario por correo en la base de datos
+      const usuarioConEmail = await dataService.getUsuarioByCorreo(email);
+      
+      // Si encontramos un usuario y no es el usuario actual
+      const emailEnUso = usuarioConEmail && usuarioConEmail.run !== usuarioActual?.run;
+      
+      return emailEnUso;
+    } catch (error) {
+      // En caso de error, asumimos que no existe para no bloquear al usuario
+      return false;
+    }
+  },
+
+  /**
+   * Valida un email con dominios específicos y verifica duplicados en BD
+   */
+  validarEmail: async (email, usuarioActual = null) => {
+    if (!email || email.trim().length === 0) {
+      return 'El email es obligatorio';
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Ingresa un email válido';
+    }
+    
+    // Validar dominios permitidos
+    const dominiosPermitidos = ['gmail.com', 'duoc.cl', 'profesor.duoc.cl'];
+    const dominio = email.split('@')[1];
+    
+    if (!dominiosPermitidos.includes(dominio)) {
+      return 'Solo se permiten emails de @gmail.com, @duoc.cl o @profesor.duoc.cl';
+    }
+    
+    // Verificar si el email ya está en uso por otro usuario en la BD
+    try {
+      const emailEnUso = await perfilValidaciones.emailExisteEnOtroUsuario(email, usuarioActual);
+      if (emailEnUso) {
+        return 'Este email ya está registrado por otro usuario';
+      }
+    } catch (error) {
+      return 'Error al verificar disponibilidad del email';
+    }
+    
+    return '';
+  },
+
   /**
    * Valida un nombre o apellido (mínimo 3 caracteres sin espacios)
    */
@@ -8,7 +62,6 @@ export const perfilValidaciones = {
       return 'Este campo es obligatorio';
     }
     
-    // Eliminar espacios y contar caracteres
     const caracteresSinEspacios = valor.replace(/\s/g, '');
     
     if (caracteresSinEspacios.length < 3) {
@@ -27,63 +80,13 @@ export const perfilValidaciones = {
   },
 
   /**
-   * Valida un email con dominios específicos y verifica duplicados
-   */
-  validarEmail: (email, usuarioActual = null) => {
-    if (!email || email.trim().length === 0) {
-      return 'El email es obligatorio';
-    }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return 'Ingresa un email válido';
-    }
-    
-    // Validar dominios permitidos
-    const dominiosPermitidos = ['gmail.com', 'duoc.cl', 'profesor.duoc.cl'];
-    const dominio = email.split('@')[1];
-    
-    if (!dominiosPermitidos.includes(dominio)) {
-      return 'Solo se permiten emails de @gmail.com, @duoc.cl o @profesor.duoc.cl';
-    }
-    
-    // Verificar si el email ya está en uso por otro usuario
-    if (perfilValidaciones.emailExisteEnOtroUsuario(email, usuarioActual)) {
-      return 'Este email ya está registrado por otro usuario';
-    }
-    
-    return '';
-  },
-
-  /**
-   * Verifica si un email ya existe en otro usuario
-   */
-  emailExisteEnOtroUsuario: (email, usuarioActual) => {
-    try {
-      const usuarios = JSON.parse(localStorage.getItem('app_usuarios')) || [];
-      
-      // Buscar si algún otro usuario (diferente al actual) tiene este email
-      const usuarioConEmail = usuarios.find(usuario => 
-        usuario.correo === email && 
-        usuario.run !== usuarioActual?.run
-      );
-      
-      return !!usuarioConEmail;
-    } catch (error) {
-      console.error('Error al verificar email:', error);
-      return false;
-    }
-  },
-
-  /**
    * Valida un teléfono chileno
    */
   validarTelefono: (telefono) => {
     if (!telefono || telefono.trim().length === 0) {
-      return ''; // Teléfono es opcional
+      return '';
     }
     
-    // Limpiar espacios y caracteres especiales
     const telefonoLimpio = telefono.replace(/\s/g, '').replace(/[+\-()]/g, '');
     
     if (!/^\d+$/.test(telefonoLimpio)) {
@@ -106,10 +109,9 @@ export const perfilValidaciones = {
    */
   validarDireccion: (direccion) => {
     if (!direccion || direccion.trim().length === 0) {
-      return ''; // Dirección es opcional
+      return '';
     }
     
-    // Eliminar espacios y contar caracteres
     const caracteresSinEspacios = direccion.replace(/\s/g, '');
     
     if (caracteresSinEspacios.length < 5) {
@@ -149,13 +151,13 @@ export const perfilValidaciones = {
   },
 
   /**
-   * Valida todo el formulario
+   * Valida todo el formulario (versión asíncrona para BD)
    */
-  validarFormularioCompleto: (formData, usuarioActual = null) => {
+  validarFormularioCompleto: async (formData, usuarioActual = null) => {
     const errores = {
       nombre: perfilValidaciones.validarNombre(formData.nombre),
       apellido: perfilValidaciones.validarNombre(formData.apellido),
-      email: perfilValidaciones.validarEmail(formData.email, usuarioActual),
+      email: await perfilValidaciones.validarEmail(formData.email, usuarioActual),
       telefono: perfilValidaciones.validarTelefono(formData.telefono),
       direccion: perfilValidaciones.validarDireccion(formData.direccion),
       region: perfilValidaciones.validarRegion(formData.region),

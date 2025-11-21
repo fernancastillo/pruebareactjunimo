@@ -1,8 +1,10 @@
+// components/tienda/PerfilUsuario.js
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Alert, Modal, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../utils/tienda/authService';
 import { perfilValidaciones } from '../../utils/tienda/perfilValidaciones';
+import { perfilService } from '../../utils/tienda/perfilService';
 import PerfilTabs from '../../components/tienda/PerfilTabs';
 import PerfilHeader from '../../components/tienda/PerfilHeader';
 import LoadingState from '../../components/tienda/LoadingState';
@@ -19,8 +21,32 @@ const PerfilUsuario = () => {
   const [touched, setTouched] = useState({});
   const navigate = useNavigate();
 
-  // Función para obtener los datos completos del usuario desde app_usuarios
-  const obtenerUsuarioCompleto = (usuarioAuth) => {
+  // Función para obtener los datos completos del usuario desde la BD Oracle
+  const obtenerUsuarioCompleto = async (usuarioAuth) => {
+    try {
+      // Obtener datos actualizados desde la base de datos
+      const usuarioCompleto = await perfilService.obtenerPerfilCompleto(usuarioAuth.run);
+      
+      if (usuarioCompleto) {
+        return {
+          ...usuarioAuth,
+          ...usuarioCompleto,
+          telefono: usuarioCompleto.telefono,
+          fecha_nacimiento: usuarioCompleto.fechaNac,
+          contrasenha: usuarioCompleto.contrasenha,
+          tipo: usuarioCompleto.tipo
+        };
+      }
+      
+      return usuarioAuth;
+    } catch (error) {
+      // En caso de error, usar los datos de autenticación existentes
+      return usuarioAuth;
+    }
+  };
+
+  // Función de fallback para obtener datos locales
+  const obtenerUsuarioCompletoLocal = (usuarioAuth) => {
     try {
       const usuarios = JSON.parse(localStorage.getItem('app_usuarios')) || [];
       const usuarioCompleto = usuarios.find(u => u.run === usuarioAuth.run);
@@ -37,7 +63,6 @@ const PerfilUsuario = () => {
       
       return usuarioAuth;
     } catch (error) {
-      console.error('Error al obtener usuario completo:', error);
       return usuarioAuth;
     }
   };
@@ -90,24 +115,25 @@ const PerfilUsuario = () => {
     };
   };
 
-  // Función para convertir datos del formulario al formato de almacenamiento
-  const convertirParaAlmacenamiento = (formData, usuarioOriginal) => {
-    const regionNombre = encontrarNombreRegionPorId(formData.region);
-    
-    return {
-      run: usuarioOriginal.run,
-      nombre: formData.nombre,
-      apellidos: formData.apellido,
-      correo: formData.email,
-      contrasenha: usuarioOriginal.contrasenha,
-      telefono: formData.telefono ? parseInt(formData.telefono) || 0 : 0,
-      fecha_nacimiento: usuarioOriginal.fecha_nacimiento,
-      tipo: usuarioOriginal.tipo,
-      region: regionNombre,
-      comuna: formData.comuna,
-      direccion: formData.direccion
-    };
+  // Función para convertir datos del formulario al formato de la BD
+const convertirParaBD = (formData, usuarioOriginal) => {
+  const regionNombre = encontrarNombreRegionPorId(formData.region);
+  
+  return {
+    run: usuarioOriginal.run,
+    nombre: formData.nombre || usuarioOriginal.nombre,
+    apellidos: formData.apellido || usuarioOriginal.apellidos || usuarioOriginal.apellido,
+    correo: formData.email || usuarioOriginal.correo || usuarioOriginal.email,
+    direccion: formData.direccion || usuarioOriginal.direccion,
+    fechaNac: usuarioOriginal.fechaNac || usuarioOriginal.fecha_nacimiento,
+    region: regionNombre || usuarioOriginal.region,
+    comuna: formData.comuna || usuarioOriginal.comuna,
+    telefono: formData.telefono ? parseInt(formData.telefono) : (usuarioOriginal.telefono || 0),
+    tipo: usuarioOriginal.tipo || 'Cliente',
+    // Mantener la contraseña existente (ya hasheada) - NO se modifica aquí
+    contrasenha: usuarioOriginal.contrasenha
   };
+};
 
   // Validar campo individual
   const validarCampo = (name, value) => {
@@ -119,7 +145,15 @@ const PerfilUsuario = () => {
         error = perfilValidaciones.validarNombre(value);
         break;
       case 'email':
-        error = perfilValidaciones.validarEmail(value, user);
+        // Validación síncrona básica, la validación completa se hace en submit
+        if (!value || value.trim().length === 0) {
+          error = 'El email es obligatorio';
+        } else {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(value)) {
+            error = 'Ingresa un email válido';
+          }
+        }
         break;
       case 'telefono':
         error = perfilValidaciones.validarTelefono(value);
@@ -141,7 +175,7 @@ const PerfilUsuario = () => {
   };
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
         const currentUser = authService.getCurrentUser();
         
@@ -150,15 +184,20 @@ const PerfilUsuario = () => {
           return;
         }
         
-        const usuarioCompleto = obtenerUsuarioCompleto(currentUser);
+        // Obtener datos actualizados desde la BD
+        const usuarioCompleto = await obtenerUsuarioCompleto(currentUser);
         setUser(usuarioCompleto);
         
         const datosNormalizados = normalizarDatosUsuario(usuarioCompleto);
         setFormData(datosNormalizados);
         
       } catch (error) {
-        console.error('Error al cargar perfil:', error);
-        navigate('/login');
+        // En caso de error, usar datos locales como fallback
+        const currentUser = authService.getCurrentUser();
+        const usuarioCompleto = obtenerUsuarioCompletoLocal(currentUser);
+        setUser(usuarioCompleto);
+        const datosNormalizados = normalizarDatosUsuario(usuarioCompleto);
+        setFormData(datosNormalizados);
       } finally {
         setLoading(false);
       }
@@ -213,12 +252,11 @@ const PerfilUsuario = () => {
     };
     setTouched(todosLosCampos);
     
-    const validacion = perfilValidaciones.validarFormularioCompleto(formData, user);
+    // Usar validación asíncrona que consulta la BD
+    const validacion = await perfilValidaciones.validarFormularioCompleto(formData, user);
     setErrores(validacion.errores);
     
     if (!validacion.esValido) {
-      console.log('❌ Errores de validación:', validacion.errores);
-      
       const primerError = Object.keys(validacion.errores).find(key => validacion.errores[key]);
       if (primerError) {
         const elementoError = document.querySelector(`[name="${primerError}"]`);
@@ -232,41 +270,48 @@ const PerfilUsuario = () => {
     }
     
     try {
-      console.log('💾 Guardando cambios válidos...', formData);
+      // Convertir datos al formato de la BD
+      const datosParaBD = convertirParaBD(formData, user);
       
-      const usuarios = JSON.parse(localStorage.getItem('app_usuarios')) || [];
-      const usuarioIndex = usuarios.findIndex(u => u.run === user.run);
+      // Llamar al servicio para actualizar en Oracle Cloud
+      const resultado = await perfilService.actualizarPerfil(user.run, datosParaBD);
       
-      if (usuarioIndex === -1) {
-        console.error('❌ Usuario no encontrado en app_usuarios');
-        return;
+      if (resultado.success) {
+        // Actualizar datos locales para mantener consistencia
+        const usuarioActualizado = {
+          ...user,
+          ...datosParaBD,
+          nombre: datosParaBD.nombre,
+          apellido: datosParaBD.apellidos,
+          email: datosParaBD.correo,
+          direccion: datosParaBD.direccion,
+          region: datosParaBD.region,
+          comuna: datosParaBD.comuna,
+          telefono: datosParaBD.telefono
+        };
+        
+        setUser(usuarioActualizado);
+        
+        // Actualizar datos de sesión
+        const usuarioSesionActualizado = {
+          ...usuarioActualizado,
+          id: usuarioActualizado.run,
+          type: usuarioActualizado.tipo
+        };
+        localStorage.setItem('auth_user', JSON.stringify(usuarioSesionActualizado));
+        
+        // Mostrar modal de éxito
+        setShowSuccessModal(true);
+        
+      } else {
+        // Mostrar error al usuario
+        setShowAlert(true);
+        setTimeout(() => setShowAlert(false), 5000);
       }
       
-      const usuarioOriginal = usuarios[usuarioIndex];
-      const usuarioActualizado = convertirParaAlmacenamiento(formData, usuarioOriginal);
-      
-      usuarios[usuarioIndex] = usuarioActualizado;
-      localStorage.setItem('app_usuarios', JSON.stringify(usuarios));
-      
-      const usuarioSesionActualizado = {
-        ...usuarioActualizado,
-        id: usuarioActualizado.run,
-        apellido: usuarioActualizado.apellidos,
-        email: usuarioActualizado.correo,
-        type: usuarioActualizado.tipo
-      };
-      localStorage.setItem('auth_user', JSON.stringify(usuarioSesionActualizado));
-      
-      const usuarioCompletoActualizado = obtenerUsuarioCompleto(usuarioSesionActualizado);
-      setUser(usuarioCompletoActualizado);
-      
-      // Mostrar modal de éxito en lugar del alert
-      setShowSuccessModal(true);
-      
-      console.log('✅ Perfil actualizado exitosamente');
-      
     } catch (error) {
-      console.error('💥 Error al actualizar perfil:', error);
+      setShowAlert(true);
+      setTimeout(() => setShowAlert(false), 5000);
     }
   };
 
@@ -312,7 +357,7 @@ const PerfilUsuario = () => {
               fontWeight: '600'
             }}
           >
-            ✅ Perfil actualizado correctamente
+            Perfil actualizado correctamente
           </Alert>
         )}
 
@@ -325,7 +370,6 @@ const PerfilUsuario = () => {
         />
       </Container>
 
-      {/* Modal de éxito */}
       <Modal
         show={showSuccessModal}
         onHide={handleCloseSuccessModal}
@@ -341,7 +385,7 @@ const PerfilUsuario = () => {
         >
           <Modal.Title className="fw-bold text-center w-100" style={{ color: '#000000' }}>
             <span style={{ fontFamily: "'Indie Flower', cursive", fontSize: '1.8rem' }}>
-              ✅ ¡Perfil Actualizado!
+              Perfil Actualizado
             </span>
           </Modal.Title>
         </Modal.Header>
@@ -365,7 +409,7 @@ const PerfilUsuario = () => {
                 fontFamily: "'Indie Flower', cursive"
               }}
             >
-              ¡Cambios Guardados Exitosamente!
+              Cambios Guardados Exitosamente
             </h4>
             <p 
               className="fs-5"

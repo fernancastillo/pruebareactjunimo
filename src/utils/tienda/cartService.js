@@ -1,38 +1,61 @@
-// src/utils/tienda/cartService.js
+// utils/tienda/cartService.js
+import { dataService } from '../dataService';
 
 const CART_KEY = 'junimoCart';
-const PRODUCTOS_KEY = 'app_productos';
 
 export const cartService = {
-  // ✅ OBTENER CARRITO
   getCart: () => {
     try {
       const cartJSON = localStorage.getItem(CART_KEY);
       return cartJSON ? JSON.parse(cartJSON) : [];
     } catch (error) {
-      console.error('Error al obtener carrito:', error);
       return [];
     }
   },
 
-  // ✅ GUARDAR CARRITO
   saveCart: (cartItems) => {
     try {
       localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
+      window.dispatchEvent(new Event('cartUpdated'));
       return true;
     } catch (error) {
-      console.error('Error al guardar carrito:', error);
       return false;
     }
   },
 
-  // ✅ CALCULAR ENVÍO
+  getCurrentStock: async (productCode) => {
+    try {
+      const producto = await dataService.getProductoById(productCode);
+      
+      const stock = 
+        producto.stockActual !== undefined ? producto.stockActual :
+        producto.stock_actual !== undefined ? producto.stock_actual :
+        producto.stock !== undefined ? producto.stock : 0;
+      
+      return stock;
+    } catch (error) {
+      return 0;
+    }
+  },
+
+  checkAvailableStock: async (productCode, cantidadDeseada) => {
+    try {
+      const currentStock = await cartService.getCurrentStock(productCode);
+      
+      if (currentStock === undefined || currentStock === null) {
+        return false;
+      }
+      
+      return currentStock >= cantidadDeseada;
+    } catch (error) {
+      return false;
+    }
+  },
+
   calculateShipping: (subtotal) => {
-    // Envío gratis sobre $30.000, costo de $3.990 si es menor o igual
     return subtotal > 30000 ? 0 : 3990;
   },
 
-  // ✅ VERIFICAR DESCUENTO DUOC
   hasDuocDiscount: (user) => {
     if (!user || !user.email) return false;
     
@@ -40,60 +63,19 @@ export const cartService = {
     return email.endsWith('@duoc.cl') || email.endsWith('@duocuc.cl');
   },
 
-  // ✅ CALCULAR DESCUENTO DUOC
   calculateDuocDiscount: (subtotal) => {
-    // 20% de descuento para estudiantes DUOC
     return Math.round(subtotal * 0.2);
   },
 
-  // ✅ CALCULAR TOTAL FINAL
-  calculateFinalTotal: (subtotal, envio, descuento = 0) => {
-    return Math.max(0, subtotal - descuento + envio);
-  },
-
-  // ✅ VERIFICAR STOCK DISPONIBLE
-  checkAvailableStock: (productoCodigo, cantidadDeseada) => {
+  updateQuantity: async (productCode, newQuantity) => {
     try {
-      const productos = JSON.parse(localStorage.getItem(PRODUCTOS_KEY)) || [];
-      const producto = productos.find(p => p.codigo === productoCodigo);
-      
-      if (!producto) return false;
-      
-      // Verificar que la cantidad deseada no supere el stock real
-      return cantidadDeseada <= producto.stock;
-    } catch (error) {
-      console.error('Error al verificar stock:', error);
-      return false;
-    }
-  },
+      const stockDisponible = await cartService.checkAvailableStock(productCode, newQuantity);
+      if (!stockDisponible) {
+        throw new Error('No hay suficiente stock disponible');
+      }
 
-  // ✅ ACTUALIZAR STOCK RESERVADO
-  updateReservedStock: (carritoActual) => {
-    try {
-      const productos = JSON.parse(localStorage.getItem(PRODUCTOS_KEY)) || [];
-      
-      const productosActualizados = productos.map(producto => {
-        const itemEnCarrito = carritoActual.find(item => item.codigo === producto.codigo);
-        return {
-          ...producto,
-          stock_reservado: itemEnCarrito ? itemEnCarrito.cantidad : 0
-        };
-      });
-      
-      localStorage.setItem(PRODUCTOS_KEY, JSON.stringify(productosActualizados));
-      return productosActualizados;
-    } catch (error) {
-      console.error('Error al actualizar stock reservado:', error);
-      return [];
-    }
-  },
-
-  // ✅ ACTUALIZAR CANTIDAD (MEJORADO)
-  updateQuantity: (productCode, newQuantity) => {
-    try {
       const cartItems = cartService.getCart();
       
-      // Si la cantidad es 0, no eliminar el producto, mantenerlo en 1
       const safeQuantity = newQuantity === 0 ? 1 : Math.max(1, newQuantity);
       
       const updatedCart = cartItems.map(item =>
@@ -103,117 +85,98 @@ export const cartService = {
       );
 
       cartService.saveCart(updatedCart);
-      cartService.updateReservedStock(updatedCart);
       
       return updatedCart;
     } catch (error) {
-      console.error('Error al actualizar cantidad:', error);
-      return cartService.getCart();
+      throw error;
     }
   },
 
-  // ✅ ELIMINAR PRODUCTO
   removeItem: (productCode) => {
     try {
       const cartItems = cartService.getCart();
       const updatedCart = cartItems.filter(item => item.codigo !== productCode);
       
       cartService.saveCart(updatedCart);
-      cartService.updateReservedStock(updatedCart);
       
       return updatedCart;
     } catch (error) {
-      console.error('Error al eliminar producto:', error);
       return cartService.getCart();
     }
   },
 
-  // ✅ CALCULAR TOTAL (solo productos)
   calculateTotal: (cartItems = null) => {
     const items = cartItems || cartService.getCart();
-    return items.reduce((total, item) => total + (item.precio * item.cantidad), 0);
+    return items.reduce((total, item) => {
+      const precio = item.precioOferta || item.precio;
+      return total + (precio * item.cantidad);
+    }, 0);
   },
 
-  // ✅ VACIAR CARRITO
   clearCart: () => {
     try {
       localStorage.removeItem(CART_KEY);
-      cartService.updateReservedStock([]);
+      window.dispatchEvent(new Event('cartUpdated'));
       return true;
     } catch (error) {
-      console.error('Error al vaciar carrito:', error);
       return false;
     }
   },
 
-  // ✅ PROCESAR CHECKOUT
-  processCheckout: (cartItems, totalFinal) => {
-    try {
-      // Actualizar stock real en productos
-      const productos = JSON.parse(localStorage.getItem(PRODUCTOS_KEY)) || [];
-      const productosActualizados = productos.map(producto => {
-        const itemEnCarrito = cartItems.find(item => item.codigo === producto.codigo);
-        if (itemEnCarrito) {
-          return {
-            ...producto,
-            stock: Math.max(0, producto.stock - itemEnCarrito.cantidad)
-          };
-        }
-        return producto;
-      });
-      
-      localStorage.setItem(PRODUCTOS_KEY, JSON.stringify(productosActualizados));
-      
-      // Aquí podrías guardar la orden con el total final
-      console.log('✅ Checkout procesado. Total final:', totalFinal);
-      
-      return productosActualizados;
-    } catch (error) {
-      console.error('Error en checkout:', error);
-      throw error;
-    }
-  },
-
-  // ✅ AGREGAR PRODUCTO AL CARRITO
-  addToCart: (producto, cantidad = 1) => {
+  addToCart: async (producto, cantidad = 1) => {
     try {
       const cartItems = cartService.getCart();
       
-      // Verificar stock disponible
-      if (!cartService.checkAvailableStock(producto.codigo, cantidad)) {
+      const stockDisponible = await cartService.checkAvailableStock(producto.codigo, cantidad);
+      if (!stockDisponible) {
         throw new Error('No hay suficiente stock disponible');
       }
 
       const existingItemIndex = cartItems.findIndex(item => item.codigo === producto.codigo);
       
       if (existingItemIndex !== -1) {
-        // Actualizar cantidad si ya existe
+        const nuevaCantidadTotal = cartItems[existingItemIndex].cantidad + cantidad;
+        const stockParaNuevaCantidad = await cartService.checkAvailableStock(producto.codigo, nuevaCantidadTotal);
+        
+        if (!stockParaNuevaCantidad) {
+          throw new Error('No hay suficiente stock disponible para la cantidad solicitada');
+        }
+        
         cartItems[existingItemIndex].cantidad += cantidad;
       } else {
-        // Agregar nuevo producto
-        cartItems.push({
+        const productoParaCarrito = {
           ...producto,
           cantidad: cantidad
-        });
+        };
+        
+        if (producto.precioOferta && producto.enOferta) {
+          productoParaCarrito.precioOriginal = producto.precio;
+          productoParaCarrito.precio = producto.precioOferta;
+          productoParaCarrito.enOferta = true;
+          productoParaCarrito.descuento = producto.descuento;
+        }
+        
+        cartItems.push(productoParaCarrito);
       }
       
       cartService.saveCart(cartItems);
-      cartService.updateReservedStock(cartItems);
       
       return cartItems;
     } catch (error) {
-      console.error('Error al agregar al carrito:', error);
       throw error;
     }
   },
 
-  // ✅ OBTENER CANTIDAD TOTAL DE PRODUCTOS
-  getTotalItems: () => {
-    const cartItems = cartService.getCart();
-    return cartItems.reduce((total, item) => total + item.cantidad, 0);
+  getProductDetails: async (productCode) => {
+    try {
+      const producto = await dataService.getProductoById(productCode);
+      return producto;
+    } catch (error) {
+      return null;
+    }
   },
 
-    validateDiscountCode: (code) => {
+  validateDiscountCode: (code) => {
     const validCodes = {
       'SV2500': {
         discount: 2500,
@@ -221,20 +184,32 @@ export const cartService = {
         minPurchase: 0,
         description: 'Descuento especial de $2.500',
         valid: true
+      },
+      'DUOC20': {
+        discount: 20,
+        type: 'percentage',
+        minPurchase: 0,
+        description: '20% de descuento DUOC',
+        valid: true
+      },
+      'ENVIOGRATIS': {
+        discount: 3990,
+        type: 'shipping',
+        minPurchase: 0,
+        description: 'Envío gratis',
+        valid: true
       }
     };
 
     return validCodes[code] || null;
   },
 
-  // ✅ CALCULAR DESCUENTO POR CÓDIGO
   calculateDiscount: (total, discountCode) => {
     if (!discountCode) return 0;
 
     const discountInfo = cartService.validateDiscountCode(discountCode);
     if (!discountInfo) return 0;
 
-    // Verificar compra mínima si existe
     if (total < discountInfo.minPurchase) {
       return 0;
     }
@@ -243,20 +218,64 @@ export const cartService = {
       return Math.min(discountInfo.discount, total);
     } else if (discountInfo.type === 'percentage') {
       return (total * discountInfo.discount) / 100;
+    } else if (discountInfo.type === 'shipping') {
+      return 0;
     }
 
     return 0;
   },
 
-  // ✅ CALCULAR TOTAL FINAL CON TODOS LOS DESCUENTOS
   calculateFinalTotal: (subtotal, shipping, duocDiscount = 0, discountCode = '') => {
     const codeDiscount = cartService.calculateDiscount(subtotal, discountCode);
-    let finalTotal = subtotal - duocDiscount - codeDiscount + shipping;
     
-    // Asegurar que el total no sea negativo
+    let envioFinal = shipping;
+    if (discountCode === 'ENVIOGRATIS') {
+      envioFinal = 0;
+    }
+    
+    let finalTotal = subtotal - duocDiscount - codeDiscount + envioFinal;
+    
     return Math.max(0, finalTotal);
-  }  
+  },
 
+  getTotalItems: () => {
+    const cartItems = cartService.getCart();
+    return cartItems.reduce((total, item) => total + item.cantidad, 0);
+  },
+
+  refreshCartProducts: async () => {
+    try {
+      const cartItems = cartService.getCart();
+      const updatedCartItems = [];
+      
+      for (const item of cartItems) {
+        try {
+          const productoActualizado = await dataService.getProductoById(item.codigo);
+          
+          if (productoActualizado) {
+            const productoParaCarrito = {
+              ...productoActualizado,
+              cantidad: item.cantidad
+            };
+            
+            if (productoActualizado.precioOferta && productoActualizado.enOferta) {
+              productoParaCarrito.precioOriginal = productoActualizado.precio;
+              productoParaCarrito.precio = productoActualizado.precioOferta;
+              productoParaCarrito.enOferta = true;
+              productoParaCarrito.descuento = productoActualizado.descuento;
+            }
+            
+            updatedCartItems.push(productoParaCarrito);
+          }
+        } catch (error) {
+          updatedCartItems.push(item);
+        }
+      }
+      
+      cartService.saveCart(updatedCartItems);
+      return updatedCartItems;
+    } catch (error) {
+      return cartService.getCart();
+    }
+  }
 };
-
-
