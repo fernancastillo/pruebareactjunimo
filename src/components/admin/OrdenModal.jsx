@@ -5,23 +5,34 @@ import { generarBoletaOrden, generarBoletaCSV, generarBoletaTexto } from '../../
 const OrdenModal = ({ show, orden, onClose, onUpdateEstado }) => {
   const [showSelectorFormato, setShowSelectorFormato] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   if (!show || !orden) return null;
 
-  const handleEstadoChange = async (nuevoEstado) => {
-    if (window.confirm(`¿Cambiar estado de orden ${orden.numeroOrden} a "${nuevoEstado}"?`)) {
-      try {
-        const resultado = await onUpdateEstado(orden.numeroOrden, nuevoEstado);
-        if (!resultado.success) {
-          setActionError(resultado.error);
-        } else {
-          onClose();
-        }
-      } catch (error) {
-        setActionError('Error al actualizar el estado: ' + error.message);
+const handleEstadoChange = async (nuevoEstado) => {
+  if (window.confirm(`¿Cambiar estado de orden ${orden.numeroOrden} a "${nuevoEstado}"?`)) {
+    try {
+      setIsUpdating(true);
+      setActionError('');
+      
+      console.log('Iniciando cambio de estado en modal...');
+      const resultado = await onUpdateEstado(orden.numeroOrden, nuevoEstado);
+      
+      if (!resultado.success) {
+        console.error('Error en cambio de estado:', resultado.error);
+        setActionError(resultado.error || 'No se pudo actualizar el estado');
+      } else {
+        console.log('Estado cambiado exitosamente desde modal');
+        onClose();
       }
+    } catch (error) {
+      console.error('Error inesperado:', error);
+      setActionError('Error al actualizar el estado: ' + error.message);
+    } finally {
+      setIsUpdating(false);
     }
-  };
+  }
+};
 
   const handleDescargarBoleta = () => {
     setShowSelectorFormato(true);
@@ -109,6 +120,17 @@ const OrdenModal = ({ show, orden, onClose, onUpdateEstado }) => {
                 </div>
               )}
 
+              {isUpdating && (
+                <div className="alert alert-info">
+                  <div className="d-flex align-items-center">
+                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                      <span className="visually-hidden">Actualizando...</span>
+                    </div>
+                    Actualizando estado...
+                  </div>
+                </div>
+              )}
+
               <div className="row mb-4">
                 <div className="col-md-6">
                   <div className="card h-100">
@@ -165,6 +187,7 @@ const OrdenModal = ({ show, orden, onClose, onUpdateEstado }) => {
                               key={boton.estado}
                               className={`btn ${boton.clase} btn-sm`}
                               onClick={() => handleEstadoChange(boton.estado)}
+                              disabled={isUpdating}
                             >
                               <i className={`${boton.icono} me-2`}></i>
                               {boton.label}
@@ -229,11 +252,17 @@ const OrdenModal = ({ show, orden, onClose, onUpdateEstado }) => {
                 type="button" 
                 className="btn btn-success"
                 onClick={handleDescargarBoleta}
+                disabled={isUpdating}
               >
                 <i className="bi bi-download me-2"></i>
                 Descargar Boleta
               </button>
-              <button type="button" className="btn btn-secondary" onClick={onClose}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={onClose}
+                disabled={isUpdating}
+              >
                 <i className="bi bi-x-circle me-2"></i>
                 Cerrar
               </button>

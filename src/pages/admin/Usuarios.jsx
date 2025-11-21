@@ -30,6 +30,49 @@ const SuccessAlert = ({ message, show, onClose }) => {
   );
 };
 
+// Componente para mensaje de error
+const ErrorAlert = ({ message, show, onClose }) => {
+  if (!show || !message) return null;
+
+  return (
+    <div className="alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3 shadow-lg" 
+         style={{ zIndex: 9999, minWidth: '300px' }} role="alert">
+      <div className="d-flex align-items-center">
+        <i className="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+        <strong>Error: {message}</strong>
+        <button 
+          type="button" 
+          className="btn-close ms-2" 
+          onClick={onClose}
+          aria-label="Cerrar"
+        ></button>
+      </div>
+    </div>
+  );
+};
+
+// Componente para información de conexión
+const ConexionInfo = ({ conexionInfo }) => {
+  if (!conexionInfo) return null;
+
+  return (
+    <div className={`alert ${conexionInfo.conectado ? 'alert-success' : 'alert-warning'} mb-3`}>
+      <div className="d-flex align-items-center">
+        <i className={`bi ${conexionInfo.conectado ? 'bi-database-check' : 'bi-database-exclamation'} me-2`}></i>
+        <div>
+          <strong>{conexionInfo.conectado ? 'Conectado a Oracle Database' : 'Problema de conexión'}</strong>
+          <div className="small">{conexionInfo.mensaje}</div>
+          {conexionInfo.totalUsuarios !== undefined && (
+            <div className="small">
+              <strong>Usuarios en base de datos:</strong> {conexionInfo.totalUsuarios}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Usuarios = () => {
   const {
     usuarios,
@@ -40,10 +83,12 @@ const Usuarios = () => {
     showCreateModal,
     filtros,
     estadisticas,
-    // Recibir los nuevos estados y funciones
+    error,
+    conexionInfo,
     successMessage,
     showSuccessMessage,
     clearSuccessMessage,
+    clearError,
     handleEdit,
     handleUpdateUsuario,
     handleDelete,
@@ -52,7 +97,8 @@ const Usuarios = () => {
     handleCloseModal,
     handleCloseCreateModal,
     handleFiltroChange,
-    handleLimpiarFiltros
+    handleLimpiarFiltros,
+    refreshData
   } = useUsuarios();
 
   const [showReporteModal, setShowReporteModal] = useState(false);
@@ -107,8 +153,17 @@ const Usuarios = () => {
     return (
       <div className="container-fluid" style={{ padding: '20px', minHeight: '100vh' }}>
         <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-          <div className="spinner-border text-white" role="status">
-            <span className="visually-hidden">Cargando...</span>
+          <div className="text-center text-white">
+            <div className="spinner-border text-white mb-3" role="status">
+              <span className="visually-hidden">Cargando...</span>
+            </div>
+            <div>
+              <h5 className="mb-2">Cargando usuarios desde Oracle Database</h5>
+              <p className="text-light mb-0">Conectando con la base de datos...</p>
+              {conexionInfo && (
+                <small className="text-info">{conexionInfo.mensaje}</small>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -125,11 +180,26 @@ const Usuarios = () => {
         onClose={clearSuccessMessage}
       />
 
+      {/* Mensaje de error */}
+      <ErrorAlert 
+        message={error}
+        show={!!error}
+        onClose={clearError}
+      />
+
+      {/* Información de conexión */}
+      <ConexionInfo conexionInfo={conexionInfo} />
+
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3 mb-0 text-white fw-bold" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.7)' }}>
-          Gestión de Usuarios
-        </h1>
+        <div>
+          <h1 className="h3 mb-0 text-white fw-bold" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.7)' }}>
+            Gestión de Usuarios
+          </h1>
+          <p className="text-light mb-0">
+            Base de datos Oracle Cloud • {usuarios.length} usuarios registrados
+          </p>
+        </div>
         <div className="d-flex flex-wrap gap-2">
           <button
             className="btn btn-success shadow"
@@ -137,6 +207,14 @@ const Usuarios = () => {
           >
             <i className="bi bi-person-plus me-2"></i>
             Crear Usuario
+          </button>
+          <button
+            className="btn btn-outline-light shadow"
+            onClick={refreshData}
+            title="Actualizar datos"
+          >
+            <i className="bi bi-arrow-clockwise me-2"></i>
+            Actualizar
           </button>
           <button
             className="btn btn-primary shadow"

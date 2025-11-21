@@ -1,233 +1,267 @@
 // src/utils/admin/usuarioService.js
-import usuariosData from '../../data/usuarios.json';
-
-const STORAGE_KEY_USUARIOS = 'app_usuarios'; // Usar la colección existente app_usuarios
-const STORAGE_KEY_ORDENES = 'app_ordenes';
-
-// Enriquecer datos con información de órdenes para estadísticas
-const enriquecerUsuariosConEstadisticas = (usuarios, ordenes = []) => {
-  return usuarios.map(usuario => {
-    const ordenesUsuario = ordenes.filter(orden => orden.run === usuario.run);
-    const totalCompras = ordenesUsuario.length;
-    const totalGastado = ordenesUsuario.reduce((sum, orden) => sum + orden.total, 0);
-    
-    return {
-      ...usuario,
-      id: usuario.run, // Usar RUN como ID
-      fechaRegistro: '01/01/2024', // Fecha por defecto
-      totalCompras,
-      totalGastado,
-      // Campos compatibles con tu JSON
-      email: usuario.correo,
-      telefono: usuario.telefono.toString(),
-      direccion: `${usuario.direccion}, ${usuario.comuna}, ${usuario.region}`
-    };
-  });
-};
+import { dataService } from '../dataService';
 
 export const usuarioService = {
   async getUsuarios() {
-  // Simular delay de API
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Primero intentar obtener usuarios de app_usuarios (colección existente)
-  const storedUsuarios = localStorage.getItem(STORAGE_KEY_USUARIOS);
-  
-  // Obtener órdenes para calcular estadísticas
-  let ordenes = [];
-  try {
-    const storedOrdenes = localStorage.getItem(STORAGE_KEY_ORDENES);
-    if (storedOrdenes) {
-      ordenes = JSON.parse(storedOrdenes);
-    }
-  } catch (error) {
-    console.warn('No se pudieron cargar las órdenes para estadísticas:', error);
-  }
-  
-  let usuariosEnriquecidos;
-  
-  if (storedUsuarios) {
-    // Usar usuarios existentes de app_usuarios
-    usuariosEnriquecidos = JSON.parse(storedUsuarios);
-    
-    // Actualizar estadísticas basadas en órdenes actuales
-    // PERO mantener los totalGastado individuales de cada usuario
-    usuariosEnriquecidos = usuariosEnriquecidos.map(usuario => {
-      const ordenesUsuario = ordenes.filter(orden => orden.run === usuario.run);
-      const totalCompras = ordenesUsuario.length;
-      
-      // Solo actualizar totalGastado si no tiene valor o es 0
-      // Esto preserva los datos históricos incluso si el usuario es eliminado después
-      const totalGastado = usuario.totalGastado > 0 
-        ? usuario.totalGastado 
-        : ordenesUsuario.reduce((sum, orden) => sum + orden.total, 0);
-      
-      return {
-        ...usuario,
-        totalCompras,
-        totalGastado
-      };
-    });
-  } else {
-    // Si no existe app_usuarios, crear desde datos iniciales y guardar en app_usuarios
-    usuariosEnriquecidos = enriquecerUsuariosConEstadisticas(usuariosData, ordenes);
-    localStorage.setItem(STORAGE_KEY_USUARIOS, JSON.stringify(usuariosEnriquecidos));
-  }
-  
-  return usuariosEnriquecidos;
-},
-
-  async createUsuario(usuarioData) {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    const usuarios = await this.getUsuarios();
-    
-    // Verificar que no exista un usuario con el mismo RUN
-    const usuarioExistente = usuarios.find(u => u.run === usuarioData.run);
-    if (usuarioExistente) {
-      throw new Error('Ya existe un usuario con este RUN');
-    }
-
-    // Verificar que no exista un usuario con el mismo email
-    const emailExistente = usuarios.find(u => u.correo === usuarioData.correo);
-    if (emailExistente) {
-      throw new Error('Ya existe un usuario con este email');
-    }
-
-    // Crear nuevo usuario con datos completos
-    const nuevoUsuario = {
-      ...usuarioData,
-      // Campos adicionales para consistencia
-      estado: 'Activo',
-      totalCompras: 0,
-      totalGastado: 0,
-      fechaRegistro: new Date().toISOString().split('T')[0], // Fecha actual
-      // Asegurar que todos los campos tengan valores
-      telefono: usuarioData.telefono || '',
-      direccion: usuarioData.direccion || '',
-      comuna: usuarioData.comuna || '',
-      region: usuarioData.region || '',
-      fecha_nacimiento: usuarioData.fecha_nacimiento || ''
-    };
-
-    usuarios.push(nuevoUsuario);
-    localStorage.setItem(STORAGE_KEY_USUARIOS, JSON.stringify(usuarios));
-    
-    return nuevoUsuario;
-  },
-
-  async updateUsuario(run, datosActualizados) {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    const usuarios = await this.getUsuarios();
-    const usuarioIndex = usuarios.findIndex(u => u.run === run);
-    
-    if (usuarioIndex === -1) {
-      throw new Error('Usuario no encontrado');
-    }
-    
-    // Validar que el RUN no se modifique
-    if (datosActualizados.run && datosActualizados.run !== run) {
-      throw new Error('No se puede modificar el RUN del usuario');
-    }
-    
-    // Validar que el tipo no se modifique
-    if (datosActualizados.tipo && datosActualizados.tipo !== usuarios[usuarioIndex].tipo) {
-      throw new Error('No se puede modificar el tipo de usuario');
-    }
-
-    // Validar email único (si se está modificando)
-    if (datosActualizados.correo && datosActualizados.correo !== usuarios[usuarioIndex].correo) {
-      const emailExistente = usuarios.find(u => u.correo === datosActualizados.correo && u.run !== run);
-      if (emailExistente) {
-        throw new Error('Ya existe un usuario con este email');
-      }
-    }
-    
-    // Actualizar usuario manteniendo los campos existentes
-    usuarios[usuarioIndex] = { 
-      ...usuarios[usuarioIndex], 
-      ...datosActualizados,
-      // Mantener campos críticos
-      run: usuarios[usuarioIndex].run,
-      tipo: usuarios[usuarioIndex].tipo
-      // Las estadísticas (totalCompras, totalGastado) se mantienen automáticamente
-      // porque no se incluyen en datosActualizados
-    };
-    
-    localStorage.setItem(STORAGE_KEY_USUARIOS, JSON.stringify(usuarios));
-    return usuarios[usuarioIndex];
-  },
-
-  async getUsuarioByRun(run) {
-    const usuarios = await this.getUsuarios();
-    return usuarios.find(u => u.run === run);
-  },
-
-  async deleteUsuario(run) {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    const usuarios = await this.getUsuarios();
-    const usuarioIndex = usuarios.findIndex(u => u.run === run);
-    
-    if (usuarioIndex === -1) {
-      throw new Error('Usuario no encontrado');
-    }
-    
-    const usuario = usuarios[usuarioIndex];
-    
-    // Solo validar que no sea administrador
-    if (usuario.tipo === 'Admin') {
-      throw new Error('No se puede eliminar un usuario administrador');
-    }
-    
-    // ✅ PERMITIR eliminar aunque tenga compras
-    usuarios.splice(usuarioIndex, 1);
-    localStorage.setItem(STORAGE_KEY_USUARIOS, JSON.stringify(usuarios));
-    return true;
-  },
-
-  // Método para sincronizar con datos existentes en app_usuarios
-  async sincronizarConAppUsuarios() {
     try {
-      // Obtener usuarios actuales de app_usuarios
-      const storedUsuarios = localStorage.getItem(STORAGE_KEY_USUARIOS);
-      if (!storedUsuarios) {
-        return await this.getUsuarios(); // Si no existe, crear desde datos iniciales
-      }
+      console.log('Obteniendo usuarios desde la base de datos Oracle...');
       
-      const usuariosExistentes = JSON.parse(storedUsuarios);
+      // Usar dataService para obtener usuarios desde la API
+      const usuarios = await dataService.getUsuarios();
+      console.log('Usuarios obtenidos desde API:', usuarios);
       
-      // Obtener órdenes para actualizar estadísticas
-      let ordenes = [];
-      try {
-        const storedOrdenes = localStorage.getItem(STORAGE_KEY_ORDENES);
-        if (storedOrdenes) {
-          ordenes = JSON.parse(storedOrdenes);
-        }
-      } catch (error) {
-        console.warn('No se pudieron cargar las órdenes para sincronización:', error);
-      }
+      // Enriquecer usuarios con estadísticas de órdenes
+      const usuariosEnriquecidos = await this.enriquecerUsuariosConEstadisticas(usuarios);
+      console.log('Usuarios enriquecidos:', usuariosEnriquecidos);
       
-      // Actualizar estadísticas de cada usuario
-      const usuariosActualizados = usuariosExistentes.map(usuario => {
-        const ordenesUsuario = ordenes.filter(orden => orden.run === usuario.run);
+      return usuariosEnriquecidos;
+    } catch (error) {
+      console.error('Error obteniendo usuarios desde la API:', error);
+      throw new Error('No se pudieron cargar los usuarios desde la base de datos: ' + error.message);
+    }
+  },
+
+  async enriquecerUsuariosConEstadisticas(usuarios) {
+    try {
+      console.log('Enriqueciendo usuarios con estadísticas...');
+      
+      // Obtener órdenes para calcular estadísticas
+      const ordenes = await dataService.getOrdenes();
+      console.log('Órdenes obtenidas para estadísticas:', ordenes.length);
+      
+      const usuariosEnriquecidos = usuarios.map(usuario => {
+        // Buscar órdenes del usuario - manejar diferentes estructuras de datos
+        const ordenesUsuario = ordenes.filter(orden => {
+          // Verificar diferentes formas en que el RUN puede estar almacenado
+          const runOrden = orden.run || (orden.usuario ? orden.usuario.run : null);
+          return runOrden && runOrden.toString() === usuario.run.toString();
+        });
+        
+        console.log(`Usuario ${usuario.run} tiene ${ordenesUsuario.length} órdenes`);
+        
         const totalCompras = ordenesUsuario.length;
-        const totalGastado = ordenesUsuario.reduce((sum, orden) => sum + orden.total, 0);
+        const totalGastado = ordenesUsuario.reduce((sum, orden) => sum + (orden.total || 0), 0);
         
         return {
           ...usuario,
+          id: usuario.run,
+          fechaRegistro: usuario.fecha_registro || usuario.fechaRegistro || '01/01/2024',
           totalCompras,
-          totalGastado
+          totalGastado,
+          email: usuario.correo || usuario.email,
+          telefono: usuario.telefono ? usuario.telefono.toString() : '',
+          direccion: this.formatearDireccion(usuario),
+          // Mantener todos los campos originales
+          nombre: usuario.nombre,
+          apellidos: usuario.apellidos,
+          tipo: usuario.tipo,
+          comuna: usuario.comuna,
+          region: usuario.region,
+          fecha_nacimiento: usuario.fecha_nacimiento
         };
       });
       
-      localStorage.setItem(STORAGE_KEY_USUARIOS, JSON.stringify(usuariosActualizados));
-      return usuariosActualizados;
-      
+      return usuariosEnriquecidos;
     } catch (error) {
-      console.error('Error sincronizando usuarios:', error);
+      console.error('Error enriqueciendo usuarios con estadísticas:', error);
+      // Retornar usuarios sin estadísticas si hay error
+      return usuarios.map(usuario => ({
+        ...usuario,
+        id: usuario.run,
+        totalCompras: 0,
+        totalGastado: 0,
+        email: usuario.correo || usuario.email,
+        telefono: usuario.telefono ? usuario.telefono.toString() : '',
+        direccion: this.formatearDireccion(usuario),
+        fechaRegistro: usuario.fecha_registro || usuario.fechaRegistro || '01/01/2024'
+      }));
+    }
+  },
+
+  formatearDireccion(usuario) {
+    const partes = [];
+    if (usuario.direccion) partes.push(usuario.direccion);
+    if (usuario.comuna) partes.push(usuario.comuna);
+    if (usuario.region) partes.push(usuario.region);
+    
+    return partes.length > 0 ? partes.join(', ') : 'Dirección no especificada';
+  },
+
+  async createUsuario(usuarioData) {
+    try {
+      console.log('Creando usuario en base de datos:', usuarioData);
+      
+      // Verificar si el RUN ya existe
+      const usuariosExistentes = await dataService.getUsuarios();
+      const usuarioExistente = usuariosExistentes.find(u => u.run.toString() === usuarioData.run.toString());
+      
+      if (usuarioExistente) {
+        throw new Error('Ya existe un usuario con este RUN');
+      }
+
+      // Preparar datos para la API
+      const usuarioParaAPI = {
+        run: parseInt(usuarioData.run), // Asegurar que sea número
+        nombre: usuarioData.nombre.trim(),
+        apellidos: usuarioData.apellidos.trim(),
+        correo: usuarioData.correo.trim(),
+        telefono: usuarioData.telefono ? parseInt(usuarioData.telefono) : null,
+        direccion: usuarioData.direccion.trim(),
+        comuna: usuarioData.comuna || null,
+        region: usuarioData.region || null,
+        tipo: usuarioData.tipo,
+        fecha_nacimiento: usuarioData.fecha_nacimiento,
+        estado: 'Activo'
+      };
+
+      console.log('Datos para enviar a API:', usuarioParaAPI);
+
+      // Usar dataService para crear usuario
+      const resultado = await dataService.addUsuario(usuarioParaAPI);
+      console.log('Usuario creado exitosamente:', resultado);
+      
+      return {
+        ...usuarioParaAPI,
+        totalCompras: 0,
+        totalGastado: 0,
+        fechaRegistro: new Date().toISOString().split('T')[0],
+        email: usuarioParaAPI.correo
+      };
+    } catch (error) {
+      console.error('Error creando usuario:', error);
+      throw new Error(`Error al crear usuario: ${error.message}`);
+    }
+  },
+
+  async updateUsuario(run, datosActualizados) {
+    try {
+      console.log('Actualizando usuario:', run, datosActualizados);
+      
+      // Obtener usuario actual primero
+      const usuarios = await this.getUsuarios();
+      const usuarioActual = usuarios.find(u => u.run.toString() === run.toString());
+      
+      if (!usuarioActual) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      // Validar que no se intente modificar un administrador
+      if (usuarioActual.tipo === 'Admin') {
+        throw new Error('No se pueden modificar usuarios administradores');
+      }
+
+      // Preparar datos para actualización
+      const datosParaActualizar = {
+        run: parseInt(run), // Mantener el mismo RUN
+        nombre: datosActualizados.nombre.trim(),
+        apellidos: datosActualizados.apellidos.trim(),
+        correo: datosActualizados.correo.trim(),
+        telefono: datosActualizados.telefono ? parseInt(datosActualizados.telefono) : null,
+        direccion: datosActualizados.direccion.trim(),
+        comuna: datosActualizados.comuna || null,
+        region: datosActualizados.region || null,
+        // No permitir cambiar tipo desde la edición
+        tipo: usuarioActual.tipo,
+        fecha_nacimiento: datosActualizados.fecha_nacimiento || usuarioActual.fecha_nacimiento,
+        estado: 'Activo'
+      };
+
+      console.log('Datos para actualizar:', datosParaActualizar);
+
+      // Usar dataService para actualizar usuario
+      await dataService.updateUsuario(datosParaActualizar);
+      
+      // Recargar datos actualizados
+      await this.getUsuarios();
+      
+      return {
+        ...usuarioActual,
+        ...datosParaActualizar
+      };
+    } catch (error) {
+      console.error('Error actualizando usuario:', error);
+      throw new Error(`Error al actualizar usuario: ${error.message}`);
+    }
+  },
+
+  async getUsuarioByRun(run) {
+    try {
+      const usuarios = await this.getUsuarios();
+      const usuario = usuarios.find(u => u.run.toString() === run.toString());
+      
+      if (!usuario) {
+        console.log('Usuario no encontrado con RUN:', run);
+        return null;
+      }
+      
+      return usuario;
+    } catch (error) {
+      console.error('Error obteniendo usuario por RUN:', error);
       throw error;
+    }
+  },
+
+  async deleteUsuario(run) {
+    try {
+      console.log('Eliminando usuario:', run);
+      
+      // Obtener usuario para validaciones
+      const usuario = await this.getUsuarioByRun(run);
+      if (!usuario) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      // Validar que no sea administrador
+      if (usuario.tipo === 'Admin') {
+        throw new Error('No se puede eliminar un usuario administrador');
+      }
+
+      // Usar dataService para eliminar usuario
+      await dataService.deleteUsuario(run);
+      console.log('Usuario eliminado exitosamente');
+      
+      return true;
+    } catch (error) {
+      console.error('Error eliminando usuario:', error);
+      throw new Error(`Error al eliminar usuario: ${error.message}`);
+    }
+  },
+
+  // Método para obtener órdenes de un usuario específico
+  async getOrdenesPorUsuario(run) {
+    try {
+      console.log('Obteniendo órdenes para usuario:', run);
+      
+      const todasLasOrdenes = await dataService.getOrdenes();
+      const ordenesUsuario = todasLasOrdenes.filter(orden => {
+        const runOrden = orden.run || (orden.usuario ? orden.usuario.run : null);
+        return runOrden && runOrden.toString() === run.toString();
+      });
+      
+      console.log(`Encontradas ${ordenesUsuario.length} órdenes para usuario ${run}`);
+      
+      return ordenesUsuario;
+    } catch (error) {
+      console.error('Error obteniendo órdenes del usuario:', error);
+      return [];
+    }
+  },
+
+  // Método para verificar conexión con la base de datos
+  async verificarConexion() {
+    try {
+      const usuarios = await dataService.getUsuarios();
+      return {
+        conectado: true,
+        totalUsuarios: usuarios.length,
+        mensaje: 'Conexión exitosa a la base de datos Oracle'
+      };
+    } catch (error) {
+      return {
+        conectado: false,
+        totalUsuarios: 0,
+        mensaje: `Error de conexión: ${error.message}`
+      };
     }
   }
 };

@@ -2,6 +2,8 @@ const API_BASE_URL = 'http://localhost:8094/v1';
 
 const apiCall = async (endpoint, options = {}) => {
   try {
+    console.log(`Llamando API: ${endpoint}`, options.body ? JSON.parse(options.body) : 'Sin body');
+    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -12,27 +14,42 @@ const apiCall = async (endpoint, options = {}) => {
 
     if (!response.ok) {
       let errorMessage = `Error HTTP ${response.status}`;
+      let errorDetails = '';
+      
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;
+        errorDetails = errorData.error || JSON.stringify(errorData);
+        
         if (errorData.error) {
           errorMessage = errorData.error;
         }
       } catch (parseError) {
         const errorText = await response.text();
         errorMessage = errorText || errorMessage;
+        errorDetails = errorText;
       }
-      throw new Error(errorMessage);
+      
+      console.error(`Error en ${endpoint}:`, {
+        status: response.status,
+        message: errorMessage,
+        details: errorDetails
+      });
+      
+      throw new Error(`${errorMessage} ${errorDetails ? `- Detalles: ${errorDetails}` : ''}`);
     }
 
     try {
       const result = await response.json();
+      console.log(`Respuesta exitosa de ${endpoint}:`, result);
       return result;
     } catch (jsonError) {
+      console.log(`${endpoint}: Sin contenido JSON, operación exitosa`);
       return { success: true };
     }
     
   } catch (error) {
+    console.error(`Error crítico en ${endpoint}:`, error);
     throw new Error(`Error al llamar ${endpoint}: ${error.message}`);
   }
 };
@@ -161,9 +178,29 @@ export const dataService = {
   },
 
   updateOrden: async (orden) => {
+    // Enviar solo los campos necesarios para evitar problemas
+    const ordenParaEnviar = {
+      numeroOrden: orden.numeroOrden,
+      estadoEnvio: orden.estadoEnvio
+      // No enviar otros campos que puedan causar problemas de serialización
+    };
+    
     return await apiCall('/updateOrden', {
       method: 'PUT',
-      body: JSON.stringify(orden),
+      body: JSON.stringify(ordenParaEnviar),
+    });
+  },
+
+  // MÉTODO NUEVO: updateOrdenEstado - específico para cambiar solo el estado
+  updateOrdenEstado: async (numeroOrden, nuevoEstado) => {
+    const ordenParaEnviar = {
+      numeroOrden: numeroOrden,
+      estadoEnvio: nuevoEstado
+    };
+    
+    return await apiCall('/updateOrdenEstado', {
+      method: 'PUT',
+      body: JSON.stringify(ordenParaEnviar),
     });
   },
 

@@ -23,25 +23,32 @@ export const useOrdenes = () => {
     aplicarFiltros();
   }, [ordenes, filtros]);
 
-  const normalizarOrdenes = (ordenesBD) => {
-    if (!Array.isArray(ordenesBD)) return [];
+ const normalizarOrdenes = (ordenesBD) => {
+  if (!Array.isArray(ordenesBD)) return [];
+  
+  return ordenesBD.map(orden => {
+    // Asegurar que el run sea siempre un string
+    const runUsuario = orden.usuario ? 
+      (orden.usuario.run ? orden.usuario.run.toString() : '') : 
+      '';
     
-    return ordenesBD.map(orden => {
-      return {
-        numeroOrden: orden.numeroOrden || '',
-        fecha: orden.fecha || '',
-        run: orden.usuario ? (orden.usuario.run || '') : '',
-        estadoEnvio: orden.estadoEnvio || 'Pendiente',
-        total: orden.total || 0,
-        productos: orden.detalles ? orden.detalles.map(detalle => ({
-          codigo: detalle.producto ? detalle.producto.codigo : '',
-          nombre: detalle.producto ? detalle.producto.nombre : '',
-          cantidad: detalle.cantidad || 0,
-          precio: detalle.producto ? detalle.producto.precio : 0
-        })) : []
-      };
-    });
-  };
+    return {
+      numeroOrden: orden.numeroOrden || '',
+      fecha: orden.fecha || '',
+      run: runUsuario, // Ahora siempre será string
+      estadoEnvio: orden.estadoEnvio || 'Pendiente',
+      total: orden.total || 0,
+      usuario: orden.usuario || null,
+      detalles: orden.detalles || [],
+      productos: orden.detalles ? orden.detalles.map(detalle => ({
+        codigo: detalle.producto ? detalle.producto.codigo : '',
+        nombre: detalle.producto ? detalle.producto.nombre : '',
+        cantidad: detalle.cantidad || 0,
+        precio: detalle.producto ? detalle.producto.precio : 0
+      })) : []
+    };
+  });
+};
 
   const loadOrdenes = async () => {
     try {
@@ -61,40 +68,43 @@ export const useOrdenes = () => {
     }
   };
 
-  const aplicarFiltros = () => {
-    if (!Array.isArray(ordenes)) {
-      setOrdenesFiltradas([]);
-      return;
-    }
+const aplicarFiltros = () => {
+  if (!Array.isArray(ordenes)) {
+    setOrdenesFiltradas([]);
+    return;
+  }
 
-    let filtered = [...ordenes];
+  let filtered = [...ordenes];
 
-    if (filtros.numeroOrden) {
-      filtered = filtered.filter(orden => 
-        orden.numeroOrden.toLowerCase().includes(filtros.numeroOrden.toLowerCase())
-      );
-    }
+  if (filtros.numeroOrden) {
+    filtered = filtered.filter(orden => 
+      orden.numeroOrden && orden.numeroOrden.toLowerCase().includes(filtros.numeroOrden.toLowerCase())
+    );
+  }
 
-    if (filtros.run) {
-      filtered = filtered.filter(orden => 
-        orden.run.includes(filtros.run)
-      );
-    }
+  if (filtros.run) {
+    filtered = filtered.filter(orden => {
+      // Convertir tanto el run de la orden como el filtro a string para comparar
+      const runOrden = orden.run ? orden.run.toString() : '';
+      const runFiltro = filtros.run.toString();
+      return runOrden.includes(runFiltro);
+    });
+  }
 
-    if (filtros.estado) {
-      filtered = filtered.filter(orden => 
-        orden.estadoEnvio === filtros.estado
-      );
-    }
+  if (filtros.estado) {
+    filtered = filtered.filter(orden => 
+      orden.estadoEnvio === filtros.estado
+    );
+  }
 
-    if (filtros.fecha) {
-      filtered = filtered.filter(orden => 
-        orden.fecha === filtros.fecha
-      );
-    }
+  if (filtros.fecha) {
+    filtered = filtered.filter(orden => 
+      orden.fecha === filtros.fecha
+    );
+  }
 
-    setOrdenesFiltradas(filtered);
-  };
+  setOrdenesFiltradas(filtered);
+};
 
   const handleEdit = (orden) => {
     setEditingOrden(orden);
@@ -103,22 +113,38 @@ export const useOrdenes = () => {
 
   const handleUpdateEstado = async (numeroOrden, nuevoEstado) => {
     try {
-      const ordenExistente = ordenes.find(o => o.numeroOrden === numeroOrden);
-      if (!ordenExistente) {
-        throw new Error('Orden no encontrada');
-      }
+      console.log('Actualizando estado de orden:', numeroOrden, '->', nuevoEstado);
 
-      const ordenActualizada = {
-        ...ordenExistente,
-        estadoEnvio: nuevoEstado
-      };
-
-      await dataService.updateOrden(ordenActualizada);
+      // Usar el nuevo método updateOrdenEstado
+      await dataService.updateOrdenEstado(numeroOrden, nuevoEstado);
+      console.log('Estado actualizado exitosamente');
+      
+      // Recargar las órdenes para reflejar el cambio
       await loadOrdenes();
       
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error('Error al actualizar estado:', error);
+      
+      // Si falla con updateOrdenEstado, intentar con updateOrden como fallback
+      try {
+        console.log('Intentando con updateOrden como fallback...');
+        await dataService.updateOrden({
+          numeroOrden: numeroOrden,
+          estadoEnvio: nuevoEstado
+        });
+        
+        console.log('Estado actualizado exitosamente con fallback');
+        await loadOrdenes();
+        return { success: true };
+        
+      } catch (fallbackError) {
+        console.error('Error también con fallback:', fallbackError);
+        return { 
+          success: false, 
+          error: `No se pudo actualizar el estado: ${error.message}` 
+        };
+      }
     }
   };
 
