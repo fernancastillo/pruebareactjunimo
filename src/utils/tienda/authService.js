@@ -205,9 +205,12 @@ export const authService = {
         return !!usuarioBD;
       } catch (endpointError) {
         const todosUsuarios = await dataService.getUsuarios();
-        return todosUsuarios.some(user =>
-          user.correo && user.correo.toLowerCase() === email.toLowerCase()
-        );
+        const emailExiste = todosUsuarios.some(user => {
+          const correoUsuario = user.correo ? user.correo.toLowerCase().trim() : '';
+          const emailBuscado = email.toLowerCase().trim();
+          return correoUsuario === emailBuscado;
+        });
+        return emailExiste;
       }
     } catch (error) {
       return false;

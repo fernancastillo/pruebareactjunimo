@@ -6,4 +6,4 @@ const RegistroUsuario = () => {
   return <RegistroUsuarioComponent />;
 };
 
-export default RegistroUsuario; // ✅ Asegúrate de que tenga export default
+export default RegistroUsuario; 

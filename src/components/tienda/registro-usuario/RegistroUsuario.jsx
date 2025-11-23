@@ -3,27 +3,21 @@ import { Container, Row, Col, Form, Button, Alert, Card, InputGroup, Modal } fro
 import { registroService } from '../../../utils/tienda/registroService';
 import { registroValidaciones } from '../../../utils/tienda/registroValidaciones';
 import regionesComunasData from '../../../data/regiones_comunas.json';
-
-// Importar la imagen del registro
 import registroImage from '../../../assets/tienda/registro.png';
+import feliImg from '../../../assets/tienda/feli.png';
 
 const RegistroUsuario = () => {
   const [formData, setFormData] = useState({
-    // Datos personales
     run: '',
     nombre: '',
     apellido: '',
     email: '',
     fono: '',
     fechaNacimiento: '',
-    
-    // Dirección
     direccion: '',
-    region: '', // ID de la región
-    regionNombre: '', // Nombre de la región
+    region: '',
+    regionNombre: '',
     comuna: '',
-    
-    // Seguridad
     password: '',
     confirmarPassword: '',
   });
@@ -37,8 +31,7 @@ const RegistroUsuario = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  
-  // Refs para los campos del formulario
+
   const runRef = useRef(null);
   const nombreRef = useRef(null);
   const apellidoRef = useRef(null);
@@ -51,19 +44,16 @@ const RegistroUsuario = () => {
   const passwordRef = useRef(null);
   const confirmarPasswordRef = useRef(null);
 
-  // Cargar regiones desde el JSON
   useEffect(() => {
     setRegiones(regionesComunasData.regiones || []);
   }, []);
 
-  // Filtrar comunas cuando cambia la región
   useEffect(() => {
     if (formData.region) {
       const regionSeleccionada = regiones.find(r => r.id === parseInt(formData.region));
       const comunas = regionSeleccionada ? regionSeleccionada.comunas : [];
       setComunasFiltradas(comunas);
-      
-      // Resetear comuna si la región cambia
+
       if (formData.comuna && !comunas.includes(formData.comuna)) {
         setFormData(prev => ({ ...prev, comuna: '' }));
       }
@@ -73,7 +63,6 @@ const RegistroUsuario = () => {
     }
   }, [formData.region, regiones, formData.comuna]);
 
-  // Función para hacer scroll al primer campo con error
   const scrollToFirstError = () => {
     const errorFields = Object.keys(errores);
     if (errorFields.length > 0) {
@@ -93,13 +82,11 @@ const RegistroUsuario = () => {
       };
 
       if (refs[firstErrorField] && refs[firstErrorField].current) {
-        // Scroll suave al campo con error
-        refs[firstErrorField].current.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
+        refs[firstErrorField].current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
         });
-        
-        // Enfocar el campo
+
         setTimeout(() => {
           refs[firstErrorField].current.focus();
         }, 500);
@@ -108,17 +95,15 @@ const RegistroUsuario = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    
-    // Limpiar caracteres no numéricos para RUN y teléfono
+    const { name, value } = e.target;
+
     let processedValue = value;
     if (name === 'run') {
-      processedValue = value.replace(/[^0-9]/g, ''); // Solo números
+      processedValue = value.replace(/[^0-9]/g, '');
     } else if (name === 'fono') {
-      processedValue = value.replace(/[^0-9]/g, ''); // Solo números
+      processedValue = value.replace(/[^0-9]/g, '');
     }
-    
-    // Si es el campo de región, también guardar el nombre
+
     if (name === 'region') {
       const regionSeleccionada = regiones.find(r => r.id === parseInt(value));
       setFormData(prev => ({
@@ -133,7 +118,6 @@ const RegistroUsuario = () => {
       }));
     }
 
-    // Limpiar error del campo cuando el usuario empiece a escribir
     if (errores[name]) {
       setErrores(prev => ({
         ...prev,
@@ -145,80 +129,65 @@ const RegistroUsuario = () => {
   const validarFormulario = () => {
     const validacion = registroValidaciones.validarFormularioCompleto(formData);
     setErrores(validacion.errores);
-    
-    // Si hay errores, hacer scroll al primero
+
     if (!validacion.esValido) {
       setTimeout(() => {
         scrollToFirstError();
       }, 100);
     }
-    
+
     return validacion.esValido;
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  console.log('📝 Iniciando validación del formulario...');
-  
-  if (validarFormulario()) {
-    console.log('✅ Formulario válido, procediendo con registro...');
-    console.log('📦 Datos del formulario:', formData);
-    
-    try {
-      // ✅ CORREGIDO: Agregar await
-      const resultado = await registroService.registrarUsuario(formData);
-      
-      console.log('🔍 Resultado del registro:', resultado);
-      
-      if (resultado.success) {
-        setRegistroExitoso(true);
-        setMensajeAlerta(resultado.message);
-        setMostrarAlerta(true);
-        setShowSuccessModal(true);
-        
-        // Limpiar formulario
-        setFormData({
-          run: '',
-          nombre: '',
-          apellido: '',
-          email: '',
-          fono: '',
-          fechaNacimiento: '',
-          direccion: '',
-          region: '',
-          regionNombre: '',
-          comuna: '',
-          password: '',
-          confirmarPassword: '',
-        });
-        
-      } else {
-        console.log('❌ Error en registro:', resultado.error);
-        setMensajeAlerta(resultado.error);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (validarFormulario()) {
+      try {
+        const resultado = await registroService.registrarUsuario(formData);
+
+        if (resultado.success) {
+          setRegistroExitoso(true);
+          setMensajeAlerta(resultado.message);
+          setMostrarAlerta(true);
+          setShowSuccessModal(true);
+
+          setFormData({
+            run: '',
+            nombre: '',
+            apellido: '',
+            email: '',
+            fono: '',
+            fechaNacimiento: '',
+            direccion: '',
+            region: '',
+            regionNombre: '',
+            comuna: '',
+            password: '',
+            confirmarPassword: '',
+          });
+
+        } else {
+          setMensajeAlerta(resultado.error);
+          setRegistroExitoso(false);
+          setMostrarAlerta(true);
+
+          setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 100);
+        }
+      } catch (error) {
+        setMensajeAlerta('Error inesperado al registrar. Intente nuevamente.');
         setRegistroExitoso(false);
         setMostrarAlerta(true);
-        
-        // Hacer scroll al principio del formulario si hay error general
-        setTimeout(() => {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 100);
       }
-    } catch (error) {
-      console.error('💥 Error inesperado en registro:', error);
-      setMensajeAlerta('Error inesperado al registrar. Intente nuevamente.');
-      setRegistroExitoso(false);
-      setMostrarAlerta(true);
+    } else {
+      setMostrarAlerta(false);
     }
-  } else {
-    console.log('❌ Formulario inválido, errores:', errores);
-    setMostrarAlerta(false);
-  }
-};
+  };
 
   const handleContinue = () => {
     setShowSuccessModal(false);
-    // Redirigir al login después de cerrar el modal
     window.location.href = '/login';
   };
 
@@ -230,7 +199,6 @@ const RegistroUsuario = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
-  // Componente para etiquetas con asterisco rojo
   const FormLabelWithAsterisk = ({ children, required = false }) => (
     <Form.Label className="fw-semibold" style={{ color: '#000000' }}>
       {children} {required && <span style={{ color: 'red' }}>*</span>}
@@ -238,7 +206,7 @@ const RegistroUsuario = () => {
   );
 
   return (
-    <div 
+    <div
       className="min-vh-100 w-100 py-5"
       style={{
         backgroundImage: 'url("https://images3.alphacoders.com/126/1269904.png")',
@@ -249,11 +217,9 @@ const RegistroUsuario = () => {
       }}
     >
       <Container>
-        {/* Títulos fuera de la card - Ahora con imagen */}
         <Row className="justify-content-center mb-4">
           <Col md={10} lg={8}>
             <div className="text-center">
-              {/* Imagen del registro en lugar del texto */}
               <div className="mb-3">
                 <img
                   src={registroImage}
@@ -265,9 +231,7 @@ const RegistroUsuario = () => {
                     filter: 'drop-shadow(3px 3px 6px rgba(0,0,0,0.8))'
                   }}
                   onError={(e) => {
-                    // Fallback si la imagen no carga
                     e.target.style.display = 'none';
-                    // Mostrar texto alternativo
                     const fallbackElement = document.getElementById('fallback-title');
                     if (fallbackElement) {
                       fallbackElement.style.display = 'block';
@@ -275,9 +239,8 @@ const RegistroUsuario = () => {
                   }}
                 />
               </div>
-              
-              {/* Texto alternativo que se muestra si la imagen no carga */}
-              <h2 
+
+              <h2
                 id="fallback-title"
                 className="fw-bold mb-3"
                 style={{
@@ -285,13 +248,13 @@ const RegistroUsuario = () => {
                   color: '#000000',
                   fontSize: '2.5rem',
                   textShadow: '2px 2px 4px rgba(255, 255, 255, 0.8)',
-                  display: 'none' /* Oculto por defecto */
+                  display: 'none'
                 }}
               >
                 Crear Cuenta
               </h2>
-              
-              <p 
+
+              <p
                 className="fs-5"
                 style={{
                   color: '#FFFFFF',
@@ -307,7 +270,7 @@ const RegistroUsuario = () => {
 
         <Row className="justify-content-center">
           <Col md={10} lg={8}>
-            <Card 
+            <Card
               className="shadow-lg border-3 border-dark rounded-4"
               style={{
                 backgroundColor: '#87CEEB',
@@ -316,7 +279,7 @@ const RegistroUsuario = () => {
             >
               <Card.Body className="p-4 p-md-5">
                 {mostrarAlerta && !registroExitoso && (
-                  <Alert 
+                  <Alert
                     variant="danger"
                     className="text-center border-3 border-dark rounded-3"
                     style={{
@@ -330,8 +293,7 @@ const RegistroUsuario = () => {
                 )}
 
                 <Form onSubmit={handleSubmit}>
-                  {/* SECCIÓN DATOS PERSONALES */}
-                  <h5 
+                  <h5
                     className="mb-3 fw-bold"
                     style={{
                       color: '#000000',
@@ -341,7 +303,7 @@ const RegistroUsuario = () => {
                   >
                     Datos Personales
                   </h5>
-                  
+
                   <Row>
                     <Col md={6}>
                       <Form.Group className="mb-3" ref={runRef}>
@@ -462,15 +424,15 @@ const RegistroUsuario = () => {
                             fontFamily: "'Lato', sans-serif"
                           }}
                         />
-                        <Form.Text 
+                        <Form.Text
                           className="fw-semibold"
-                          style={{ 
+                          style={{
                             color: '#000000',
                             fontFamily: "'Lato', sans-serif"
                           }}
                         >
-                          {formData.email && (formData.email.endsWith('@duoc.cl') || formData.email.endsWith('@duocuc.cl')) 
-                            ? '🎓 Obtendrás un 20% de descuento en tus compras si tu correo pertenece a DUOC' 
+                          {formData.email && (formData.email.endsWith('@duoc.cl') || formData.email.endsWith('@duocuc.cl'))
+                            ? 'Obtendrás un 20% de descuento en tus compras si tu correo pertenece a DUOC'
                             : 'Usa tu email @duoc.cl para obtener 20% de descuento'}
                         </Form.Text>
                         <Form.Control.Feedback type="invalid" style={{ fontFamily: "'Lato', sans-serif" }}>
@@ -501,8 +463,7 @@ const RegistroUsuario = () => {
                     </Col>
                   </Row>
 
-                  {/* SECCIÓN DIRECCIÓN */}
-                  <h5 
+                  <h5
                     className="mb-3 fw-bold mt-4"
                     style={{
                       color: '#000000',
@@ -512,7 +473,7 @@ const RegistroUsuario = () => {
                   >
                     Dirección
                   </h5>
-                  
+
                   <Form.Group className="mb-3" ref={direccionRef}>
                     <FormLabelWithAsterisk required>Dirección</FormLabelWithAsterisk>
                     <Form.Control
@@ -592,8 +553,7 @@ const RegistroUsuario = () => {
                     </Col>
                   </Row>
 
-                  {/* SECCIÓN CONTRASEÑA */}
-                  <h5 
+                  <h5
                     className="mb-3 fw-bold mt-4"
                     style={{
                       color: '#000000',
@@ -603,7 +563,7 @@ const RegistroUsuario = () => {
                   >
                     Seguridad
                   </h5>
-                  
+
                   <Row>
                     <Col md={6}>
                       <Form.Group className="mb-3" ref={passwordRef}>
@@ -632,7 +592,7 @@ const RegistroUsuario = () => {
                               color: '#000000'
                             }}
                           >
-                            {showPassword ? '👁️' : '👁️‍🗨️'}
+                            {showPassword ? 'Ocultar' : 'Mostrar'}
                           </Button>
                         </InputGroup>
                         <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
@@ -670,7 +630,7 @@ const RegistroUsuario = () => {
                               color: '#000000'
                             }}
                           >
-                            {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                            {showConfirmPassword ? 'Ocultar' : 'Mostrar'}
                           </Button>
                         </InputGroup>
                         <Form.Control.Feedback type="invalid" style={{ fontFamily: "'Lato', sans-serif" }}>
@@ -680,9 +640,9 @@ const RegistroUsuario = () => {
                     </Col>
                   </Row>
 
-                  <Button 
-                    variant="primary" 
-                    type="submit" 
+                  <Button
+                    variant="primary"
+                    type="submit"
                     className="w-100 rounded-pill py-3 border-3 border-dark fw-bold mt-4"
                     style={{
                       backgroundColor: '#dedd8ff5',
@@ -705,10 +665,9 @@ const RegistroUsuario = () => {
                     Crear Cuenta
                   </Button>
 
-                  {/* Mensaje de campos obligatorios */}
                   <div className="text-center mt-3">
-                    <p 
-                      style={{ 
+                    <p
+                      style={{
                         color: '#000000',
                         fontFamily: "'Lato', sans-serif",
                         fontWeight: '500',
@@ -720,8 +679,8 @@ const RegistroUsuario = () => {
                   </div>
 
                   <div className="text-center mt-3">
-                    <p 
-                      style={{ 
+                    <p
+                      style={{
                         color: '#000000',
                         fontFamily: "'Lato', sans-serif",
                         fontWeight: '500'
@@ -737,7 +696,6 @@ const RegistroUsuario = () => {
         </Row>
       </Container>
 
-      {/* Modal de éxito */}
       <Modal
         show={showSuccessModal}
         onHide={handleContinue}
@@ -745,7 +703,7 @@ const RegistroUsuario = () => {
         size="lg"
         style={{ fontFamily: "'Lato', sans-serif" }}
       >
-        <Modal.Header 
+        <Modal.Header
           className="border-3 border-dark"
           style={{
             backgroundColor: '#87CEEB',
@@ -753,7 +711,7 @@ const RegistroUsuario = () => {
         >
           <Modal.Title className="fw-bold text-center w-100" style={{ color: '#000000' }}>
             <span style={{ fontFamily: "'Indie Flower', cursive", fontSize: '1.8rem' }}>
-              ✅ ¡Registro Exitoso!
+              ¡Registro Exitoso!
             </span>
           </Modal.Title>
         </Modal.Header>
@@ -764,33 +722,38 @@ const RegistroUsuario = () => {
           }}
         >
           <div className="mb-4">
-            <div 
-              className="display-1 mb-3"
-              style={{ color: '#000000' }}
-            >
-              🎉
-            </div>
-            <h4 
+            <h4
               className="fw-bold mb-3"
-              style={{ 
+              style={{
                 color: '#000000',
                 fontFamily: "'Indie Flower', cursive"
               }}
             >
               ¡Bienvenido a Junimo Store!
             </h4>
-            <p 
+            <div className="mb-3 d-flex justify-content-center">
+              <img
+                src={feliImg}
+                alt="Inicio de sesión exitoso"
+                style={{
+                  width: '120px',
+                  height: '120px',
+                  objectFit: 'contain'
+                }}
+              />
+            </div>
+            <p
               className="fs-5"
-              style={{ 
+              style={{
                 color: '#000000',
                 fontWeight: '500'
               }}
             >
               Tu cuenta ha sido creada exitosamente.
             </p>
-            <p 
+            <p
               className="fs-6"
-              style={{ 
+              style={{
                 color: '#000000',
                 fontWeight: '400'
               }}
@@ -805,8 +768,8 @@ const RegistroUsuario = () => {
             backgroundColor: '#87CEEB',
           }}
         >
-          <Button 
-            variant="primary" 
+          <Button
+            variant="primary"
             onClick={handleContinue}
             className="rounded-pill px-5 py-2 border-3 border-dark fw-bold"
             style={{
