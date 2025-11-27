@@ -6,9 +6,11 @@ const PerfilModal = ({
   usuario,
   formData,
   guardando,
+  cambioContrasenha,
   onClose,
   onChange,
-  onSubmit
+  onSubmit,
+  setCambioContrasenha
 }) => {
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [mostrarConfirmarPassword, setMostrarConfirmarPassword] = useState(false);
@@ -94,6 +96,16 @@ const PerfilModal = ({
       onChange(e);
     }
   };
+
+  // Y en el JSX, muestra un indicador simple:
+  {
+    formData.password && formData.password.trim() && (
+      <div className="alert alert-warning mb-3">
+        <i className="bi bi-exclamation-triangle me-2"></i>
+        <strong>Contraseña:</strong> Se cambiará la contraseña al guardar
+      </div>
+    )
+  }
 
   const validarEmail = (email) => {
     if (!email?.trim()) return 'El correo electrónico es obligatorio';
@@ -224,11 +236,14 @@ const PerfilModal = ({
       }
     }
 
-    const errorPassword = validarPassword(formData.password);
-    if (errorPassword) nuevosErrores.password = errorPassword;
+    // Solo validar contraseñas si se está cambiando
+    if (cambioContrasenha) {
+      const errorPassword = validarPassword(formData.password);
+      if (errorPassword) nuevosErrores.password = errorPassword;
 
-    const errorConfirmarPassword = validarConfirmarPassword(formData.password, formData.confirmarPassword);
-    if (errorConfirmarPassword) nuevosErrores.confirmarPassword = errorConfirmarPassword;
+      const errorConfirmarPassword = validarConfirmarPassword(formData.password, formData.confirmarPassword);
+      if (errorConfirmarPassword) nuevosErrores.confirmarPassword = errorConfirmarPassword;
+    }
 
     setErrores(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
@@ -259,6 +274,19 @@ const PerfilModal = ({
 
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
+              {/* Indicador de estado de contraseña */}
+              {cambioContrasenha ? (
+                <div className="alert alert-warning mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  <strong>Contraseña:</strong> Se cambiará la contraseña al guardar
+                </div>
+              ) : (
+                <div className="alert alert-info mb-3">
+                  <i className="bi bi-info-circle me-2"></i>
+                  <strong>Contraseña:</strong> Se mantendrá la contraseña actual
+                </div>
+              )}
+
               <div className="row">
                 <div className="col-md-6">
                   <div className="mb-3">

@@ -59,6 +59,12 @@ export const usePerfil = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validar que las contraseñas coincidan si se está cambiando
+    if (formData.password && formData.password !== formData.confirmarPassword) {
+      setMensaje({ tipo: 'error', texto: 'Las contraseñas no coinciden' });
+      return;
+    }
+
     setGuardando(true);
     try {
       const usuarioActual = authService.getCurrentUser();
@@ -73,6 +79,7 @@ export const usePerfil = () => {
         }
       }
 
+      // Crear objeto con los datos básicos (sin contraseña por defecto)
       const datosActualizados = {
         run: usuario.run,
         nombre: formData.nombre.trim(),
@@ -83,11 +90,17 @@ export const usePerfil = () => {
         comuna: formData.comuna || '',
         region: formData.region || '',
         fecha_nacimiento: formData.fecha_nacimiento || '',
-        tipo: usuario.tipo,
-        contrasenha: formData.password && formData.password.trim()
-          ? await usuarioService.hashPasswordSHA256(formData.password)
-          : usuario.contrasenha
+        tipo: usuario.tipo
+        // NO incluir contrasenha aquí por defecto
       };
+
+      // SOLUCIÓN: Solo enviar contraseña si se está cambiando
+      if (formData.password && formData.password.trim()) {
+        datosActualizados.contrasenha = await usuarioService.hashPasswordSHA256(formData.password);
+      }
+      // Si no hay contraseña nueva, NO se envía el campo contrasenha
+
+      console.log('Datos a enviar:', datosActualizados);
 
       await usuarioService.updateUsuario(usuario.run, datosActualizados);
 
@@ -104,6 +117,7 @@ export const usePerfil = () => {
 
       localStorage.setItem('auth_user', JSON.stringify(userData));
 
+      // Limpiar campos de contraseña
       setFormData(prev => ({
         ...prev,
         password: '',
@@ -111,12 +125,21 @@ export const usePerfil = () => {
       }));
 
       setShowModal(false);
-      setMensaje({ tipo: 'success', texto: 'Perfil actualizado correctamente' });
+      setMensaje({ 
+        tipo: 'success', 
+        texto: formData.password && formData.password.trim() 
+          ? 'Perfil y contraseña actualizados correctamente' 
+          : 'Perfil actualizado correctamente' 
+      });
 
       setTimeout(() => setMensaje({ tipo: '', texto: '' }), 3000);
 
     } catch (error) {
-      setMensaje({ tipo: 'error', texto: error.message || 'Error al actualizar el perfil' });
+      console.error('Error al actualizar perfil:', error);
+      setMensaje({ 
+        tipo: 'error', 
+        texto: error.message || 'Error al actualizar el perfil' 
+      });
     } finally {
       setGuardando(false);
     }

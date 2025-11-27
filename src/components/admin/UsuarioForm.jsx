@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import regionesComunasData from '../../data/regiones_comunas.json';
 
-const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
+const UsuarioForm = ({ usuario, onSubmit, onCancel, isSubmitting = false }) => {
   const [formData, setFormData] = useState({
     run: '',
     nombre: '',
@@ -12,17 +12,18 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
     comuna: '',
     region: '',
     tipo: 'Cliente',
-    fecha_nacimiento: ''
+    fecha_nacimiento: '',
+    contrasenha: ''
   });
 
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [comunasFiltradas, setComunasFiltradas] = useState([]);
 
   useEffect(() => {
     if (usuario) {
-      // Modo edición
       setFormData({
-        run: usuario.run || '',
+        run: usuario.run ? usuario.run.toString() : '',
         nombre: usuario.nombre || '',
         apellidos: usuario.apellidos || '',
         correo: usuario.correo || '',
@@ -31,10 +32,10 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
         comuna: usuario.comuna || '',
         region: usuario.region || '',
         tipo: usuario.tipo || 'Cliente',
-        fecha_nacimiento: usuario.fecha_nacimiento || ''
+        fecha_nacimiento: usuario.fecha_nacimiento || '',
+        contrasenha: ''
       });
 
-      // Si hay región seleccionada, cargar sus comunas
       if (usuario.region) {
         const regionEncontrada = regionesComunasData.regiones.find(
           r => r.nombre === usuario.region
@@ -44,7 +45,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
         }
       }
     } else {
-      // Modo creación - resetear formulario
       setFormData({
         run: '',
         nombre: '',
@@ -55,39 +55,37 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
         comuna: '',
         region: '',
         tipo: 'Cliente',
-        fecha_nacimiento: ''
+        fecha_nacimiento: '',
+        contrasenha: ''
       });
       setComunasFiltradas([]);
     }
   }, [usuario]);
 
-  // Función para validar RUN con algoritmo módulo 11
   const validarRUN = (run) => {
-    if (!run.trim()) return 'El RUN es requerido';
+    const runStr = run ? run.toString() : '';
+    
+    if (!runStr.trim()) return 'El RUN es requerido';
 
-    // Solo números, sin puntos ni dígito verificador
-    if (!/^\d+$/.test(run)) {
+    if (!/^\d+$/.test(runStr)) {
       return 'El RUN debe contener solo números (sin puntos ni guión)';
     }
 
-    // ✅ Entre 8 y 9 caracteres (sin dígito verificador)
-    if (run.length < 8 || run.length > 9) {
+    if (runStr.length < 8 || runStr.length > 9) {
       return 'El RUN debe tener entre 8 y 9 dígitos';
     }
 
-    // Validar con algoritmo módulo 11
-    const runStr = run.padStart(9, '0'); // Asegurar 9 dígitos para cálculo
+    const runPadded = runStr.padStart(9, '0');
     const factores = [3, 2, 7, 6, 5, 4, 3, 2];
     let suma = 0;
 
     for (let i = 0; i < 8; i++) {
-      suma += parseInt(runStr[i]) * factores[i];
+      suma += parseInt(runPadded[i]) * factores[i];
     }
 
     const resto = suma % 11;
     const digitoVerificador = 11 - resto;
 
-    // Validar dígito verificador
     let digitoEsperado;
     if (digitoVerificador === 11) {
       digitoEsperado = 0;
@@ -97,9 +95,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
       digitoEsperado = digitoVerificador;
     }
 
-    // El RUN sin dígito verificador debe ser válido
     if (digitoEsperado === 'K') {
-      // RUN válido pero con K
       return '';
     } else if (typeof digitoEsperado === 'number' && digitoEsperado >= 0 && digitoEsperado <= 9) {
       return '';
@@ -108,28 +104,25 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
     }
   };
 
-  // Función para validar email con dominios específicos
   const validarEmail = (email) => {
-    if (!email.trim()) return 'El email es requerido';
+    const emailStr = email ? email.toString() : '';
+    if (!emailStr.trim()) return 'El email es requerido';
 
     const dominiosPermitidos = ['gmail.com', 'duoc.cl', 'profesor.duoc.cl'];
     const regex = new RegExp(`^[a-zA-Z0-9._%+-]+@(${dominiosPermitidos.join('|')})$`);
 
-    if (!regex.test(email)) {
+    if (!regex.test(emailStr)) {
       return `El email debe ser de uno de estos dominios: ${dominiosPermitidos.join(', ')}`;
     }
 
     return '';
   };
 
-  // Función para validar teléfono (opcional)
   const validarTelefono = (telefono) => {
-    if (!telefono || telefono.trim() === '') return ''; // Teléfono es opcional
+    if (!telefono || telefono.toString().trim() === '') return '';
 
-    // Remover todos los caracteres que no sean números
-    const soloNumeros = telefono.replace(/\D/g, '');
+    const soloNumeros = telefono.toString().replace(/\D/g, '');
 
-    // Validar que tenga exactamente 9 dígitos y empiece con 9
     if (soloNumeros.length !== 9) {
       return 'El teléfono debe tener 9 dígitos';
     }
@@ -141,37 +134,59 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
     return '';
   };
 
-  // Función para validar nombre y apellidos
   const validarNombre = (nombre) => {
-    if (!nombre.trim()) return 'El nombre es requerido';
-    if (nombre.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
+    const nombreStr = nombre ? nombre.toString() : '';
+    if (!nombreStr.trim()) return 'El nombre es requerido';
+    if (nombreStr.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
     return '';
   };
 
   const validarApellidos = (apellidos) => {
-    if (!apellidos.trim()) return 'Los apellidos son requeridos';
-    if (apellidos.trim().length < 3) return 'Los apellidos deben tener al menos 3 caracteres';
+    const apellidosStr = apellidos ? apellidos.toString() : '';
+    if (!apellidosStr.trim()) return 'Los apellidos son requeridos';
+    if (apellidosStr.trim().length < 3) return 'Los apellidos deben tener al menos 3 caracteres';
     return '';
   };
 
-  // Función para validar dirección (OBLIGATORIA)
   const validarDireccion = (direccion) => {
-    if (!direccion.trim()) return 'La dirección es obligatoria';
+    const direccionStr = direccion ? direccion.toString() : '';
+    if (!direccionStr.trim()) return 'La dirección es obligatoria';
 
-    if (direccion.trim().length < 5) {
+    if (direccionStr.trim().length < 5) {
       return 'La dirección debe tener al menos 5 caracteres';
     }
 
-    if (direccion.trim().length > 100) {
+    if (direccionStr.trim().length > 100) {
       return 'La dirección no puede tener más de 100 caracteres';
     }
 
     return '';
   };
 
-  // Función para formatear RUN mientras se escribe (solo números)
+  const validarContrasenha = (contrasenha, esEdicion = false) => {
+    if (esEdicion && (!contrasenha || contrasenha.trim() === '')) {
+      return '';
+    }
+
+    if (!esEdicion && (!contrasenha || contrasenha.trim() === '')) {
+      return 'La contraseña es requerida';
+    }
+
+    const contrasenhaStr = contrasenha.toString();
+    
+    if (contrasenhaStr.length < 6) {
+      return 'La contraseña debe tener al menos 6 caracteres';
+    }
+
+    if (contrasenhaStr.length > 50) {
+      return 'La contraseña no puede tener más de 50 caracteres';
+    }
+
+    return '';
+  };
+
   const handleRunChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ''); // Solo números
+    const value = e.target.value.replace(/\D/g, '');
     setFormData(prev => ({
       ...prev,
       run: value
@@ -185,17 +200,15 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
     }
   };
 
-  // Función para manejar cambio de región
   const handleRegionChange = (e) => {
     const regionSeleccionada = e.target.value;
 
     setFormData(prev => ({
       ...prev,
       region: regionSeleccionada,
-      comuna: '' // Resetear comuna cuando cambia la región
+      comuna: ''
     }));
 
-    // Filtrar comunas según la región seleccionada
     if (regionSeleccionada) {
       const regionEncontrada = regionesComunasData.regiones.find(
         r => r.nombre === regionSeleccionada
@@ -209,7 +222,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
       setComunasFiltradas([]);
     }
 
-    // Limpiar errores
     if (errors.region) {
       setErrors(prev => ({
         ...prev,
@@ -218,7 +230,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
     }
   };
 
-  // Función para manejar cambio de comuna
   const handleComunaChange = (e) => {
     const comunaSeleccionada = e.target.value;
 
@@ -227,7 +238,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
       comuna: comunaSeleccionada
     }));
 
-    // Limpiar errores
     if (errors.comuna) {
       setErrors(prev => ({
         ...prev,
@@ -244,7 +254,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
       [name]: value
     }));
 
-    // Limpiar error del campo
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -253,7 +262,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
     }
   };
 
-  // Función para calcular edad exacta
   const calcularEdad = (fechaNacimiento) => {
     const hoy = new Date();
     const fechaNac = new Date(fechaNacimiento);
@@ -261,7 +269,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
     let edad = hoy.getFullYear() - fechaNac.getFullYear();
     const mes = hoy.getMonth() - fechaNac.getMonth();
 
-    // Ajustar si aún no ha pasado el mes de cumpleaños este año
     if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
       edad--;
     }
@@ -271,34 +278,31 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
 
   const validateForm = () => {
     const newErrors = {};
+    const esEdicion = !!usuario;
 
-    // Validar RUN
     const errorRUN = validarRUN(formData.run);
     if (errorRUN) newErrors.run = errorRUN;
 
-    // Validar nombre
     const errorNombre = validarNombre(formData.nombre);
     if (errorNombre) newErrors.nombre = errorNombre;
 
-    // Validar apellidos
     const errorApellidos = validarApellidos(formData.apellidos);
     if (errorApellidos) newErrors.apellidos = errorApellidos;
 
-    // Validar email
     const errorEmail = validarEmail(formData.correo);
     if (errorEmail) newErrors.correo = errorEmail;
 
-    // Validar teléfono (solo si se ingresó)
-    if (formData.telefono && formData.telefono.trim() !== '') {
+    if (formData.telefono && formData.telefono.toString().trim() !== '') {
       const errorTelefono = validarTelefono(formData.telefono);
       if (errorTelefono) newErrors.telefono = errorTelefono;
     }
 
-    // ✅ Validar dirección (OBLIGATORIA)
     const errorDireccion = validarDireccion(formData.direccion);
     if (errorDireccion) newErrors.direccion = errorDireccion;
 
-    // Validar región y comuna (si se selecciona una, debe seleccionar la otra)
+    const errorContrasenha = validarContrasenha(formData.contrasenha, esEdicion);
+    if (errorContrasenha) newErrors.contrasenha = errorContrasenha;
+
     if (formData.region && !formData.comuna) {
       newErrors.comuna = 'Debe seleccionar una comuna para la región elegida';
     }
@@ -306,7 +310,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
       newErrors.region = 'Debe seleccionar una región para la comuna elegida';
     }
 
-    // Validar fecha de nacimiento
     if (!formData.fecha_nacimiento) {
       newErrors.fecha_nacimiento = 'La fecha de nacimiento es requerida';
     } else {
@@ -316,7 +319,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
         newErrors.fecha_nacimiento = 'El usuario debe ser mayor de 10 años';
       }
 
-      // Validar que no sea una fecha futura
       const fechaNac = new Date(formData.fecha_nacimiento);
       const hoy = new Date();
       if (fechaNac > hoy) {
@@ -333,9 +335,8 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
 
     if (!validateForm()) return;
 
-    // Preparar datos para enviar
     const usuarioData = {
-      run: formData.run, // RUN sin formato
+      run: formData.run,
       nombre: formData.nombre.trim(),
       apellidos: formData.apellidos.trim(),
       correo: formData.correo,
@@ -345,10 +346,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
       region: formData.region || '',
       tipo: formData.tipo,
       fecha_nacimiento: formData.fecha_nacimiento,
-      // Campos por defecto para nuevo usuario
-      estado: 'Activo',
-      totalCompras: 0,
-      totalGastado: 0
+      ...(formData.contrasenha && { contrasenha: formData.contrasenha })
     };
 
     onSubmit(usuarioData);
@@ -370,12 +368,11 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
               value={formData.run}
               onChange={handleRunChange}
               placeholder="Ej: 123456789"
-              disabled={!!usuario} // No permitir modificar RUN en edición
-              maxLength={9} // ✅ 9 dígitos máximo
+              disabled={!!usuario}
+              maxLength={9}
             />
             {errors.run && <div className="invalid-feedback">{errors.run}</div>}
             <div className="form-text">
-              {/* ✅ ELIMINADO: "Se valida con algoritmo módulo 11" */}
               Solo números, sin puntos ni dígito verificador (8-9 dígitos)
             </div>
           </div>
@@ -392,6 +389,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
               name="tipo"
               value={formData.tipo}
               onChange={handleChange}
+              disabled={isSubmitting}
             >
               <option value="Cliente">Cliente</option>
               <option value="Admin">Administrador</option>
@@ -417,6 +415,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
               placeholder="Ej: Ana María"
               minLength={3}
               required
+              disabled={isSubmitting}
             />
             {errors.nombre && <div className="invalid-feedback">{errors.nombre}</div>}
             <div className="form-text">
@@ -440,6 +439,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
               placeholder="Ej: González Pérez"
               minLength={3}
               required
+              disabled={isSubmitting}
             />
             {errors.apellidos && <div className="invalid-feedback">{errors.apellidos}</div>}
             <div className="form-text">
@@ -462,10 +462,47 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
           onChange={handleChange}
           placeholder="Ej: usuario@gmail.com"
           required
+          disabled={isSubmitting}
         />
         {errors.correo && <div className="invalid-feedback">{errors.correo}</div>}
         <div className="form-text">
           Dominios permitidos: gmail.com, duoc.cl, profesor.duoc.cl
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <label htmlFor="contrasenha" className="form-label fw-bold">
+          {usuario ? 'Nueva Contraseña' : 'Contraseña *'}
+        </label>
+        <div className="input-group">
+          <input
+            type={mostrarPassword ? "text" : "password"}
+            className={`form-control ${errors.contrasenha ? 'is-invalid' : ''}`}
+            id="contrasenha"
+            name="contrasenha"
+            value={formData.contrasenha}
+            onChange={handleChange}
+            placeholder={usuario ? "Dejar vacío para mantener la actual" : "Ingrese contraseña"}
+            minLength={6}
+            maxLength={50}
+            required={!usuario}
+            disabled={isSubmitting}
+          />
+          <button
+            type="button"
+            className="btn btn-outline-secondary"
+            onClick={() => setMostrarPassword(!mostrarPassword)}
+            disabled={isSubmitting}
+          >
+            <i className={`bi ${mostrarPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+          </button>
+          {errors.contrasenha && <div className="invalid-feedback">{errors.contrasenha}</div>}
+        </div>
+        <div className="form-text">
+          {usuario 
+            ? 'Opcional: Ingrese nueva contraseña solo si desea cambiarla'
+            : 'Mínimo 6 caracteres, máximo 50 caracteres'
+          }
         </div>
       </div>
 
@@ -481,6 +518,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
           value={formData.telefono}
           onChange={handleChange}
           placeholder="Ej: 912345678"
+          disabled={isSubmitting}
         />
         {errors.telefono && <div className="invalid-feedback">{errors.telefono}</div>}
         <div className="form-text">
@@ -500,6 +538,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
           value={formData.fecha_nacimiento}
           onChange={handleChange}
           required
+          disabled={isSubmitting}
         />
         {errors.fecha_nacimiento && <div className="invalid-feedback">{errors.fecha_nacimiento}</div>}
         <div className="form-text">
@@ -507,7 +546,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
         </div>
       </div>
 
-      {/* DIRECCIÓN OBLIGATORIA */}
       <div className="mb-3">
         <label htmlFor="direccion" className="form-label fw-bold">
           Dirección *
@@ -523,6 +561,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
           minLength={5}
           maxLength={100}
           required
+          disabled={isSubmitting}
         />
         {errors.direccion && <div className="invalid-feedback">{errors.direccion}</div>}
         <div className="form-text">
@@ -531,7 +570,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
       </div>
 
       <div className="row">
-        {/* REGIÓN PRIMERO */}
         <div className="col-md-6">
           <div className="mb-3">
             <label htmlFor="region" className="form-label fw-bold">
@@ -543,6 +581,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
               name="region"
               value={formData.region}
               onChange={handleRegionChange}
+              disabled={isSubmitting}
             >
               <option value="">Seleccionar región...</option>
               {regionesComunasData.regiones.map(region => (
@@ -555,7 +594,6 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
           </div>
         </div>
 
-        {/* COMUNA DESPUÉS */}
         <div className="col-md-6">
           <div className="mb-3">
             <label htmlFor="comuna" className="form-label fw-bold">
@@ -567,7 +605,7 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
               name="comuna"
               value={formData.comuna}
               onChange={handleComunaChange}
-              disabled={!formData.region}
+              disabled={!formData.region || isSubmitting}
             >
               <option value="">Seleccionar comuna...</option>
               {comunasFiltradas.map(comuna => (
@@ -585,13 +623,33 @@ const UsuarioForm = ({ usuario, onSubmit, onCancel }) => {
       </div>
 
       <div className="d-flex justify-content-end gap-2 mt-4">
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
+        <button 
+          type="button" 
+          className="btn btn-secondary" 
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
           <i className="bi bi-x-circle me-2"></i>
           Cancelar
         </button>
-        <button type="submit" className="btn btn-primary">
-          <i className="bi bi-check-circle me-2"></i>
-          {usuario ? 'Actualizar Usuario' : 'Crear Usuario'}
+        <button 
+          type="submit" 
+          className="btn btn-primary"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <div className="spinner-border spinner-border-sm me-2" role="status">
+                <span className="visually-hidden">Cargando...</span>
+              </div>
+              {usuario ? 'Actualizando...' : 'Creando...'}
+            </>
+          ) : (
+            <>
+              <i className="bi bi-check-circle me-2"></i>
+              {usuario ? 'Actualizar Usuario' : 'Crear Usuario'}
+            </>
+          )}
         </button>
       </div>
     </form>

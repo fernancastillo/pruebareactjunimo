@@ -1,8 +1,6 @@
-// utils/tienda/orderCreationService.js
 import { dataService } from '../dataService';
 
 export const orderCreationService = {
-  // Obtener la última orden para generar número secuencial
   getLastOrderNumber: async () => {
     try {
       const orders = await dataService.getOrdenes();
@@ -35,11 +33,9 @@ export const orderCreationService = {
     }
   },
 
-  // Generar número de orden secuencial
   generateSequentialOrderNumber: async () => {
     try {
       const lastOrderNumber = await orderCreationService.getLastOrderNumber();
-
       const numberMatch = lastOrderNumber.match(/\d+/);
 
       if (!numberMatch) {
@@ -50,7 +46,6 @@ export const orderCreationService = {
       const nextNumber = currentNumber + 1;
 
       return `SO${nextNumber}`;
-
     } catch (error) {
       const timestamp = Date.now();
       const random = Math.floor(Math.random() * 100);
@@ -58,7 +53,6 @@ export const orderCreationService = {
     }
   },
 
-  // Crear orden con detalles para BD Oracle
   createOrderWithDetails: async (user, cartItems, totalFinal, discountCode = '', paymentData = null) => {
     try {
       if (!user || !user.run) {
@@ -93,33 +87,38 @@ export const orderCreationService = {
       };
 
       return ordenCompleta;
-
     } catch (error) {
       throw error;
     }
   },
 
-  // Guardar orden en BD Oracle
   saveOrder: async (orderData) => {
     try {
+      if (!orderData.usuario || !orderData.usuario.run) {
+        throw new Error('Estructura de usuario inválida');
+      }
+
       if (!orderData.detalles || orderData.detalles.length === 0) {
         throw new Error('La orden debe tener al menos un detalle');
       }
 
-      if (!orderData.numeroOrden) {
-        throw new Error('La orden debe tener un número de orden');
-      }
-
       const result = await dataService.addOrden(orderData);
-
       return result;
-
     } catch (error) {
-      throw new Error(`No se pudo guardar la orden en la base de datos: ${error.message}`);
+      let errorMessage = error.message;
+      
+      if (error.message.includes('500')) {
+        errorMessage = 'Error interno del servidor. Por favor, contacta al administrador.';
+      } else if (error.message.includes('Network Error')) {
+        errorMessage = 'Error de conexión. Verifica tu internet.';
+      } else if (error.message.includes('404')) {
+        errorMessage = 'Servicio no disponible. Intenta más tarde.';
+      }
+      
+      throw new Error(errorMessage);
     }
   },
 
-  // Procesar compra completa (FUNCIÓN PRINCIPAL)
   processCompletePurchase: async (user, cartItems, totalFinal, discountCode = '', paymentData = null) => {
     try {
       if (cartItems.length === 0) {
@@ -141,9 +140,8 @@ export const orderCreationService = {
         order: ordenGuardada,
         message: 'Compra procesada exitosamente'
       };
-
     } catch (error) {
-      throw new Error(`No se pudo procesar la compra: ${error.message}`);
+      throw error;
     }
   },
 

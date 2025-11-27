@@ -470,10 +470,16 @@ export const useProductos = () => {
   };
 
   const handleDelete = async (codigo) => {
-    if (window.confirm('Estas seguro de que quieres eliminar este producto?')) {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
       try {
         await dataService.deleteProducto(codigo);
         await loadProductos();
+        
+        // Agregar mensaje de éxito
+        setSuccessMessage('Producto eliminado con éxito');
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 3000);
+        
       } catch (error) {
         alert(`Error al eliminar producto: ${error.message}`);
       }

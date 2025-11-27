@@ -406,36 +406,16 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
 
   return (
     <Modal show={show} onHide={onClose} size="lg" centered>
-      <Modal.Header
-        closeButton
-        className="border-3 border-dark"
-        style={{
-          backgroundColor: '#87CEEB',
-        }}
-      >
-        <Modal.Title className="fw-bold text-center w-100" style={{ color: '#000000' }}>
-          <span style={{ fontFamily: "'Indie Flower', cursive", fontSize: '1.8rem' }}>
-            <i className="bi bi-person-plus me-2"></i>
-            {usuario ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
-          </span>
+      <Modal.Header closeButton className="border-0">
+        <Modal.Title className="fw-bold w-100 text-center">
+          <i className="bi bi-person-plus me-2"></i>
+          {usuario ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
         </Modal.Title>
       </Modal.Header>
 
-      <Modal.Body
-        style={{
-          backgroundColor: '#87CEEB',
-        }}
-      >
+      <Modal.Body className="p-4">
         {submitError && (
-          <Alert
-            variant="danger"
-            className="mb-3 border-3 border-dark rounded-3"
-            style={{
-              backgroundColor: '#FFB6C1',
-              color: '#000000',
-              fontWeight: '600'
-            }}
-          >
+          <Alert variant="danger" className="mb-3">
             <i className="bi bi-exclamation-triangle me-2"></i>
             {submitError}
           </Alert>
@@ -445,26 +425,21 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
           <div className="row">
             <div className="col-md-6">
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+                <Form.Label className="form-label fw-bold">
                   RUN *
                 </Form.Label>
                 <Form.Control
                   type="text"
-                  className={`form-control border-3 border-dark rounded-3 ${errors.run ? 'is-invalid' : ''}`}
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    fontFamily: "'Lato', sans-serif"
-                  }}
+                  className={`form-control ${errors.run ? 'is-invalid' : ''}`}
                   name="run"
                   value={formData.run}
                   onChange={handleRunChange}
                   placeholder="Ej: 123456789"
-                  disabled={!!usuario} // No permitir modificar RUN en edición
+                  disabled={!!usuario}
                   maxLength={9}
                 />
-                {errors.run && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.run}</div>}
-                <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+                {errors.run && <div className="invalid-feedback">{errors.run}</div>}
+                <Form.Text className="form-text">
                   Solo números, sin puntos ni dígito verificador (8-9 dígitos)
                 </Form.Text>
               </Form.Group>
@@ -472,16 +447,11 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
 
             <div className="col-md-6">
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+                <Form.Label className="form-label fw-bold">
                   Tipo de Usuario *
                 </Form.Label>
                 <Form.Select
-                  className={`form-select border-3 border-dark rounded-3 ${errors.tipo ? 'is-invalid' : ''}`}
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    fontFamily: "'Lato', sans-serif"
-                  }}
+                  className={`form-select ${errors.tipo ? 'is-invalid' : ''}`}
                   name="tipo"
                   value={formData.tipo}
                   onChange={handleChange}
@@ -490,8 +460,8 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
                   <option value="Vendedor">Vendedor</option>
                   <option value="Admin">Administrador</option>
                 </Form.Select>
-                {errors.tipo && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.tipo}</div>}
-                <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+                {errors.tipo && <div className="invalid-feedback">{errors.tipo}</div>}
+                <Form.Text className="form-text">
                   Selecciona el rol del usuario en el sistema
                 </Form.Text>
               </Form.Group>
@@ -501,17 +471,12 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
           <div className="row">
             <div className="col-md-6">
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+                <Form.Label className="form-label fw-bold">
                   Nombre *
                 </Form.Label>
                 <Form.Control
                   type="text"
-                  className={`form-control border-3 border-dark rounded-3 ${errors.nombre ? 'is-invalid' : ''}`}
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    fontFamily: "'Lato', sans-serif"
-                  }}
+                  className={`form-control ${errors.nombre ? 'is-invalid' : ''}`}
                   name="nombre"
                   value={formData.nombre}
                   onChange={handleChange}
@@ -519,8 +484,8 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
                   minLength={3}
                   required
                 />
-                {errors.nombre && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.nombre}</div>}
-                <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+                {errors.nombre && <div className="invalid-feedback">{errors.nombre}</div>}
+                <Form.Text className="form-text">
                   Mínimo 3 caracteres
                 </Form.Text>
               </Form.Group>
@@ -528,17 +493,12 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
 
             <div className="col-md-6">
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+                <Form.Label className="form-label fw-bold">
                   Apellidos *
                 </Form.Label>
                 <Form.Control
                   type="text"
-                  className={`form-control border-3 border-dark rounded-3 ${errors.apellidos ? 'is-invalid' : ''}`}
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    fontFamily: "'Lato', sans-serif"
-                  }}
+                  className={`form-control ${errors.apellidos ? 'is-invalid' : ''}`}
                   name="apellidos"
                   value={formData.apellidos}
                   onChange={handleChange}
@@ -546,8 +506,8 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
                   minLength={3}
                   required
                 />
-                {errors.apellidos && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.apellidos}</div>}
-                <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+                {errors.apellidos && <div className="invalid-feedback">{errors.apellidos}</div>}
+                <Form.Text className="form-text">
                   Mínimo 3 caracteres
                 </Form.Text>
               </Form.Group>
@@ -555,88 +515,67 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
           </div>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+            <Form.Label className="form-label fw-bold">
               Email *
             </Form.Label>
             <Form.Control
               type="email"
-              className={`form-control border-3 border-dark rounded-3 ${errors.correo ? 'is-invalid' : ''}`}
-              style={{
-                backgroundColor: '#FFFFFF',
-                color: '#000000',
-                fontFamily: "'Lato', sans-serif"
-              }}
+              className={`form-control ${errors.correo ? 'is-invalid' : ''}`}
               name="correo"
               value={formData.correo}
               onChange={handleChange}
               placeholder="Ej: usuario@gmail.com"
               required
             />
-            {errors.correo && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.correo}</div>}
-            <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+            {errors.correo && <div className="invalid-feedback">{errors.correo}</div>}
+            <Form.Text className="form-text">
               Dominios permitidos: gmail.com, duoc.cl, profesor.duoc.cl
             </Form.Text>
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+            <Form.Label className="form-label fw-bold">
               Teléfono
             </Form.Label>
             <Form.Control
               type="text"
-              className={`form-control border-3 border-dark rounded-3 ${errors.telefono ? 'is-invalid' : ''}`}
-              style={{
-                backgroundColor: '#FFFFFF',
-                color: '#000000',
-                fontFamily: "'Lato', sans-serif"
-              }}
+              className={`form-control ${errors.telefono ? 'is-invalid' : ''}`}
               name="telefono"
               value={formData.telefono}
               onChange={handleChange}
               placeholder="Ej: 912345678"
             />
-            {errors.telefono && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.telefono}</div>}
-            <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+            {errors.telefono && <div className="invalid-feedback">{errors.telefono}</div>}
+            <Form.Text className="form-text">
               Opcional. Si se ingresa, debe empezar con 9 y tener exactamente 9 dígitos
             </Form.Text>
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+            <Form.Label className="form-label fw-bold">
               Fecha de Nacimiento *
             </Form.Label>
             <Form.Control
               type="date"
-              className={`form-control border-3 border-dark rounded-3 ${errors.fecha_nacimiento ? 'is-invalid' : ''}`}
-              style={{
-                backgroundColor: '#FFFFFF',
-                color: '#000000',
-                fontFamily: "'Lato', sans-serif"
-              }}
+              className={`form-control ${errors.fecha_nacimiento ? 'is-invalid' : ''}`}
               name="fecha_nacimiento"
               value={formData.fecha_nacimiento}
               onChange={handleChange}
               required
             />
-            {errors.fecha_nacimiento && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.fecha_nacimiento}</div>}
-            <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+            {errors.fecha_nacimiento && <div className="invalid-feedback">{errors.fecha_nacimiento}</div>}
+            <Form.Text className="form-text">
               El usuario debe ser mayor de 10 años
             </Form.Text>
           </Form.Group>
 
-          {/* DIRECCIÓN OBLIGATORIA */}
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+            <Form.Label className="form-label fw-bold">
               Dirección *
             </Form.Label>
             <Form.Control
               type="text"
-              className={`form-control border-3 border-dark rounded-3 ${errors.direccion ? 'is-invalid' : ''}`}
-              style={{
-                backgroundColor: '#FFFFFF',
-                color: '#000000',
-                fontFamily: "'Lato', sans-serif"
-              }}
+              className={`form-control ${errors.direccion ? 'is-invalid' : ''}`}
               name="direccion"
               value={formData.direccion}
               onChange={handleChange}
@@ -645,26 +584,20 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
               maxLength={100}
               required
             />
-            {errors.direccion && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.direccion}</div>}
-            <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+            {errors.direccion && <div className="invalid-feedback">{errors.direccion}</div>}
+            <Form.Text className="form-text">
               Entre 5 y 100 caracteres
             </Form.Text>
           </Form.Group>
 
           <div className="row">
-            {/* REGIÓN PRIMERO */}
             <div className="col-md-6">
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+                <Form.Label className="form-label fw-bold">
                   Región
                 </Form.Label>
                 <Form.Select
-                  className={`form-select border-3 border-dark rounded-3 ${errors.region ? 'is-invalid' : ''}`}
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    fontFamily: "'Lato', sans-serif"
-                  }}
+                  className={`form-select ${errors.region ? 'is-invalid' : ''}`}
                   name="region"
                   value={formData.region}
                   onChange={handleRegionChange}
@@ -676,23 +609,17 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
                     </option>
                   ))}
                 </Form.Select>
-                {errors.region && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.region}</div>}
+                {errors.region && <div className="invalid-feedback">{errors.region}</div>}
               </Form.Group>
             </div>
 
-            {/* COMUNA DESPUÉS */}
             <div className="col-md-6">
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+                <Form.Label className="form-label fw-bold">
                   Comuna
                 </Form.Label>
                 <Form.Select
-                  className={`form-select border-3 border-dark rounded-3 ${errors.comuna ? 'is-invalid' : ''}`}
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    fontFamily: "'Lato', sans-serif"
-                  }}
+                  className={`form-select ${errors.comuna ? 'is-invalid' : ''}`}
                   name="comuna"
                   value={formData.comuna}
                   onChange={handleComunaChange}
@@ -705,43 +632,30 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
                     </option>
                   ))}
                 </Form.Select>
-                {errors.comuna && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.comuna}</div>}
-                <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+                {errors.comuna && <div className="invalid-feedback">{errors.comuna}</div>}
+                <Form.Text className="form-text">
                   {!formData.region ? 'Primero selecciona una región' : `${comunasFiltradas.length} comunas disponibles`}
                 </Form.Text>
               </Form.Group>
             </div>
           </div>
 
-          {/* CAMPOS DE CONTRASEÑA - Solo en creación o si el usuario quiere cambiarla */}
           {!usuario && (
             <>
-              <h6
-                className="mb-3 fw-bold mt-4"
-                style={{
-                  color: '#000000',
-                  fontFamily: "'Indie Flower', cursive",
-                  fontSize: '1.3rem'
-                }}
-              >
+              <h6 className="mb-3 fw-bold mt-4 border-top pt-3">
                 Seguridad
               </h6>
 
               <div className="row">
                 <div className="col-md-6">
                   <Form.Group className="mb-3">
-                    <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+                    <Form.Label className="form-label fw-bold">
                       Contraseña *
                     </Form.Label>
                     <InputGroup>
                       <Form.Control
                         type={showPassword ? "text" : "password"}
-                        className={`form-control border-3 border-dark rounded-3 ${errors.password ? 'is-invalid' : ''}`}
-                        style={{
-                          backgroundColor: '#FFFFFF',
-                          color: '#000000',
-                          fontFamily: "'Lato', sans-serif"
-                        }}
+                        className={`form-control ${errors.password ? 'is-invalid' : ''}`}
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
@@ -751,19 +665,14 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
                         required
                       />
                       <Button
-                        variant="outline-dark"
-                        className="border-3 border-dark rounded-3"
-                        style={{
-                          backgroundColor: '#dedd8ff5',
-                          color: '#000000'
-                        }}
+                        variant="outline-secondary"
                         onClick={togglePasswordVisibility}
                       >
                         {showPassword ? '👁️' : '👁️‍🗨️'}
                       </Button>
                     </InputGroup>
-                    {errors.password && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.password}</div>}
-                    <Form.Text className="text-muted" style={{ fontFamily: "'Lato', sans-serif" }}>
+                    {errors.password && <div className="invalid-feedback">{errors.password}</div>}
+                    <Form.Text className="form-text">
                       La contraseña debe tener entre 6 y 10 caracteres
                     </Form.Text>
                   </Form.Group>
@@ -771,18 +680,13 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
 
                 <div className="col-md-6">
                   <Form.Group className="mb-3">
-                    <Form.Label className="fw-bold" style={{ color: '#000000' }}>
+                    <Form.Label className="form-label fw-bold">
                       Confirmar Contraseña *
                     </Form.Label>
                     <InputGroup>
                       <Form.Control
                         type={showConfirmPassword ? "text" : "password"}
-                        className={`form-control border-3 border-dark rounded-3 ${errors.confirmarPassword ? 'is-invalid' : ''}`}
-                        style={{
-                          backgroundColor: '#FFFFFF',
-                          color: '#000000',
-                          fontFamily: "'Lato', sans-serif"
-                        }}
+                        className={`form-control ${errors.confirmarPassword ? 'is-invalid' : ''}`}
                         name="confirmarPassword"
                         value={formData.confirmarPassword}
                         onChange={handleChange}
@@ -790,18 +694,13 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
                         required
                       />
                       <Button
-                        variant="outline-dark"
-                        className="border-3 border-dark rounded-3"
-                        style={{
-                          backgroundColor: '#dedd8ff5',
-                          color: '#000000'
-                        }}
+                        variant="outline-secondary"
                         onClick={toggleConfirmPasswordVisibility}
                       >
                         {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
                       </Button>
                     </InputGroup>
-                    {errors.confirmarPassword && <div className="invalid-feedback" style={{ fontFamily: "'Lato', sans-serif" }}>{errors.confirmarPassword}</div>}
+                    {errors.confirmarPassword && <div className="invalid-feedback">{errors.confirmarPassword}</div>}
                   </Form.Group>
                 </div>
               </div>
@@ -813,23 +712,7 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
               variant="secondary"
               onClick={onClose}
               disabled={loading}
-              className="rounded-pill px-4 py-2 border-3 border-dark fw-bold"
-              style={{
-                backgroundColor: '#dedd8ff5',
-                color: '#000000',
-                transition: 'all 0.3s ease',
-                fontFamily: "'Lato', sans-serif"
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 8px 20px rgba(222, 221, 143, 0.6)';
-                e.target.style.backgroundColor = '#FFD700';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-                e.target.style.backgroundColor = '#dedd8ff5';
-              }}
+              className="px-4"
             >
               <i className="bi bi-x-circle me-2"></i>
               Cancelar
@@ -838,23 +721,7 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
               type="submit"
               variant="primary"
               disabled={loading}
-              className="rounded-pill px-4 py-2 border-3 border-dark fw-bold"
-              style={{
-                backgroundColor: '#dedd8ff5',
-                color: '#000000',
-                transition: 'all 0.3s ease',
-                fontFamily: "'Lato', sans-serif"
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 8px 20px rgba(222, 221, 143, 0.6)';
-                e.target.style.backgroundColor = '#FFD700';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-                e.target.style.backgroundColor = '#dedd8ff5';
-              }}
+              className="px-4"
             >
               {loading ? (
                 <>
@@ -870,17 +737,9 @@ const UsuarioCreateModal = ({ show, usuario, onSave, onClose }) => {
             </Button>
           </div>
 
-          {/* Mensaje de campos obligatorios */}
           <div className="text-center mt-3">
-            <p
-              style={{
-                color: '#000000',
-                fontFamily: "'Lato', sans-serif",
-                fontWeight: '500',
-                fontSize: '0.9rem'
-              }}
-            >
-              <span style={{ color: 'red' }}>*</span> Campos obligatorios
+            <p className="text-muted small">
+              <span className="text-danger">*</span> Campos obligatorios
             </p>
           </div>
         </Form>

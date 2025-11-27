@@ -10,7 +10,7 @@ const OrdenesTable = ({ ordenes, onEdit, onDelete, onUpdateEstado }) => {
 • Total: ${formatCurrency(orden.total)}
 • Productos: ${orden.productos.length} item(s)
 
-⚠️ Esta acción no se puede deshacer.
+ Esta acción no se puede deshacer.
     `.trim();
 
     if (window.confirm(mensajeConfirmacion)) {

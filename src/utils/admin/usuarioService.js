@@ -191,11 +191,14 @@ export const usuarioService = {
         region: datosActualizados.region || null,
         tipo: datosActualizados.tipo,
         fechaNac: this.formatearFechaParaAPI(datosActualizados.fecha_nacimiento),
-        contrasenha: datosActualizados.contrasenha
       };
 
-      const resultado = await dataService.updateUsuario(datosParaActualizar);
+      if (datosActualizados.contrasenha && datosActualizados.contrasenha.trim() !== '') {
+        const passwordHash = await this.hashPasswordSHA256(datosActualizados.contrasenha);
+        datosParaActualizar.contrasenha = passwordHash;
+      }
 
+      const resultado = await dataService.updateUsuario(datosParaActualizar);
       return resultado;
     } catch (error) {
       throw new Error(`Error al actualizar usuario: ${error.message}`);

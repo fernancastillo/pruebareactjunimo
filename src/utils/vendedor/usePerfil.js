@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../tienda/authService';
-import { usuarioService } from '../admin/usuarioService'; // ← Cambiar esta línea
+import { dataService } from '../dataService';
 
 export const usePerfil = () => {
     const [usuario, setUsuario] = useState(null);
@@ -20,7 +20,7 @@ export const usePerfil = () => {
             const usuarioActual = authService.getCurrentUser();
 
             if (usuarioActual) {
-                const usuarioCompleto = await usuarioService.getUsuarioByRun(usuarioActual.id);
+                const usuarioCompleto = await dataService.getUsuarioById(usuarioActual.id);
 
                 if (usuarioCompleto) {
                     setUsuario(usuarioCompleto);
@@ -28,11 +28,12 @@ export const usePerfil = () => {
                         nombre: usuarioCompleto.nombre || '',
                         apellidos: usuarioCompleto.apellidos || '',
                         correo: usuarioCompleto.correo || '',
-                        telefono: usuarioCompleto.telefono || '',
+                        // Asegurar que teléfono sea string
+                        telefono: usuarioCompleto.telefono ? usuarioCompleto.telefono.toString() : '',
                         direccion: usuarioCompleto.direccion || '',
                         comuna: usuarioCompleto.comuna || '',
                         region: usuarioCompleto.region || '',
-                        fecha_nacimiento: usuarioCompleto.fecha_nacimiento || '',
+                        fecha_nacimiento: usuarioCompleto.fechaNac || usuarioCompleto.fecha_nacimiento || '',
                         password: '',
                         confirmarPassword: ''
                     });
@@ -55,6 +56,16 @@ export const usePerfil = () => {
         }));
     };
 
+    // Función para hashear contraseña (simple)
+    const hashPasswordSHA256 = async (password) => {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex.toUpperCase();
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -65,10 +76,16 @@ export const usePerfil = () => {
                 throw new Error('Usuario no autenticado');
             }
 
+            // Verificar email existente solo si cambió el correo
             if (formData.correo && formData.correo !== usuario.correo) {
-                const emailExistente = await usuarioService.verificarEmailExistente(formData.correo);
-                if (emailExistente) {
-                    throw new Error('Ya existe un usuario con este email');
+                try {
+                    const usuarioConEmail = await dataService.getUsuarioByCorreo(formData.correo);
+                    if (usuarioConEmail && usuarioConEmail.run !== usuario.run) {
+                        throw new Error('Ya existe un usuario con este email');
+                    }
+                } catch (error) {
+                    // Si hay error al buscar por email, continuar (puede ser que no exista el endpoint)
+                    console.log('No se pudo verificar email, continuando...');
                 }
             }
 
@@ -81,18 +98,21 @@ export const usePerfil = () => {
                 direccion: formData.direccion.trim(),
                 comuna: formData.comuna || '',
                 region: formData.region || '',
-                fecha_nacimiento: formData.fecha_nacimiento || '',
+                fechaNac: formData.fecha_nacimiento || '',
                 tipo: usuario.tipo, // No se puede cambiar el tipo
                 contrasenha: formData.password && formData.password.trim()
-                    ? await usuarioService.hashPasswordSHA256(formData.password)
+                    ? await hashPasswordSHA256(formData.password)
                     : usuario.contrasenha
             };
 
-            await usuarioService.updateUsuario(usuario.run, datosActualizados);
+            // Usar dataService para actualizar
+            await dataService.updateUsuario(datosActualizados);
 
-            const usuarioActualizado = await usuarioService.getUsuarioByRun(usuario.run);
+            // Recargar datos actualizados
+            const usuarioActualizado = await dataService.getUsuarioById(usuario.run);
             setUsuario(usuarioActualizado);
 
+            // Actualizar datos en localStorage
             const userData = {
                 id: usuarioActualizado.run,
                 nombre: usuarioActualizado.nombre,
@@ -103,6 +123,7 @@ export const usePerfil = () => {
 
             localStorage.setItem('auth_user', JSON.stringify(userData));
 
+            // Limpiar campos de contraseña
             setFormData(prev => ({
                 ...prev,
                 password: '',

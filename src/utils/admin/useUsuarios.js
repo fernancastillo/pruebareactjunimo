@@ -73,6 +73,7 @@ export const useUsuarios = () => {
       alert('No se pueden editar usuarios administradores');
       return;
     }
+    
     setEditingUsuario(usuario);
     setShowModal(true);
   };
@@ -89,6 +90,8 @@ export const useUsuarios = () => {
 
       setSuccessMessage('Usuario actualizado con éxito');
       setShowSuccessMessage(true);
+      setShowModal(false);
+      setEditingUsuario(null);
 
       setTimeout(() => {
         setShowSuccessMessage(false);

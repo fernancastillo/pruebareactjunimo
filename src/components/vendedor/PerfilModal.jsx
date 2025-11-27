@@ -15,6 +15,12 @@ const PerfilModal = ({
     const [errores, setErrores] = useState({});
     const [comunasFiltradas, setComunasFiltradas] = useState([]);
 
+    // Función auxiliar para convertir teléfono a string seguro
+    const telefonoToString = (telefono) => {
+        if (telefono === null || telefono === undefined || telefono === '') return '';
+        return telefono.toString();
+    };
+
     useEffect(() => {
         if (formData.region) {
             const regionEncontrada = regionesComunasData.regiones.find(
@@ -88,7 +94,10 @@ const PerfilModal = ({
         }
 
         if (name === 'telefono') {
-            const soloNumeros = value.replace(/\D/g, '').slice(0, 9);
+            // Siempre trabajar con string para teléfono
+            const telefonoStr = value ? value.toString() : '';
+            const soloNumeros = telefonoStr.replace(/\D/g, '').slice(0, 9);
+            // Enviar como string para evitar problemas
             onChange({ target: { name, value: soloNumeros } });
         } else {
             onChange(e);
@@ -109,9 +118,12 @@ const PerfilModal = ({
     };
 
     const validarTelefono = (telefono) => {
-        if (!telefono || telefono.trim() === '') return '';
+        // Usar la función auxiliar para convertir a string
+        const telefonoStr = telefonoToString(telefono);
+        
+        if (!telefonoStr || telefonoStr.trim() === '') return '';
 
-        const soloNumeros = telefono.replace(/\D/g, '');
+        const soloNumeros = telefonoStr.replace(/\D/g, '');
 
         if (soloNumeros.length !== 9) {
             return 'El teléfono debe tener 9 dígitos';
@@ -197,8 +209,10 @@ const PerfilModal = ({
         const errorEmail = validarEmail(formData.correo);
         if (errorEmail) nuevosErrores.correo = errorEmail;
 
-        if (formData.telefono && formData.telefono.trim() !== '') {
-            const errorTelefono = validarTelefono(formData.telefono);
+        // CORRECCIÓN: Usar la función auxiliar para teléfono
+        const telefonoParaValidar = telefonoToString(formData.telefono);
+        if (telefonoParaValidar && telefonoParaValidar.trim() !== '') {
+            const errorTelefono = validarTelefono(telefonoParaValidar);
             if (errorTelefono) nuevosErrores.telefono = errorTelefono;
         }
 
@@ -370,7 +384,7 @@ const PerfilModal = ({
                                     type="text"
                                     className={getInputClass('telefono')}
                                     name="telefono"
-                                    value={formData.telefono || ''}
+                                    value={telefonoToString(formData.telefono)} // Usar función auxiliar aquí también
                                     onChange={handleChange}
                                     placeholder="912345678"
                                     maxLength="9"

@@ -15,25 +15,19 @@ const Pedidos = () => {
 
   useEffect(() => {
     const loadUserOrders = async () => {
-      console.log('=== INICIANDO CARGA DE PEDIDOS ===');
-
       const currentUser = authService.getCurrentUser();
-      console.log('Usuario actual desde authService:', currentUser);
       setUser(currentUser);
 
       if (!currentUser) {
-        console.log('No hay usuario autenticado');
         setLoading(false);
         return;
       }
 
       const userRun = currentUser.run || currentUser.id;
-      console.log('RUN del usuario a buscar:', userRun);
 
       try {
         // Obtener órdenes del usuario
         const userOrders = await orderService.getUserOrders(userRun);
-        console.log('Órdenes encontradas para el usuario:', userOrders);
 
         if (userOrders.length === 0) {
           setDebugInfo(`No se encontraron órdenes para el usuario ${currentUser.nombre} (RUN: ${userRun}).`);
@@ -67,7 +61,6 @@ const Pedidos = () => {
         }
 
       } catch (error) {
-        console.error('Error crítico al cargar órdenes:', error);
         setDebugInfo(`Error al cargar órdenes: ${error.message}`);
         setOrders([]);
       }

@@ -1,95 +1,65 @@
-// src/components/admin/UsuarioModal.jsx
-import { useState, useEffect } from 'react';
-import { formatCurrency, formatDate } from '../../utils/admin/dashboardUtils';
-import { usuarioService } from '../../utils/admin/usuarioService';
-import regionesComunasData from '../../data/regiones_comunas.json';
+import { useState } from 'react';
+import UsuarioForm from './UsuarioForm';
 
 const UsuarioModal = ({ show, usuario, onClose, onUpdate }) => {
-  const [formData, setFormData] = useState({
-    nombre: '',
-    apellidos: '',
-    correo: '',
-    telefono: '',
-    direccion: '',
-    comuna: '',
-    region: ''
-  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [errors, setErrors] = useState({});
-  const [comunasFiltradas, setComunasFiltradas] = useState([]);
+  if (!show) return null;
 
-  // Estado para el historial de compras
-  const [historialCompras, setHistorialCompras] = useState([]);
-  const [cargandoCompras, setCargandoCompras] = useState(false);
-
-  useEffect(() => {
-    if (usuario) {
-      setFormData({
-        nombre: usuario.nombre || '',
-        apellidos: usuario.apellidos || '',
-        correo: usuario.correo || usuario.email || '',
-        telefono: usuario.telefono || '',
-        direccion: usuario.direccion || '',
-        comuna: usuario.comuna || '',
-        region: usuario.region || ''
-      });
-
-      // Si hay región seleccionada, cargar sus comunas
-      if (usuario.region) {
-        const regionEncontrada = regionesComunasData.regiones.find(
-          r => r.nombre === usuario.region
-        );
-        if (regionEncontrada) {
-          setComunasFiltradas(regionEncontrada.comunas);
-        }
-      }
-
-      // Cargar historial de compras si el usuario es cliente
-      if (usuario.tipo === 'Cliente' && usuario.run) {
-        cargarHistorialCompras(usuario.run);
-      }
-    }
-  }, [usuario]);
-
-  // Función para cargar el historial de compras usando usuarioService
-  const cargarHistorialCompras = async (run) => {
+  const handleSubmit = async (usuarioData) => {
     try {
-      setCargandoCompras(true);
-      console.log('Cargando historial de compras para usuario:', run);
-
-      // Usar usuarioService para obtener órdenes del usuario
-      const ordenesUsuario = await usuarioService.getOrdenesPorUsuario(run);
-      console.log('Órdenes obtenidas:', ordenesUsuario);
-
-      // Formatear las órdenes para el historial
-      const historialFormateado = ordenesUsuario.map(orden => ({
-        id: orden.numeroOrden || `orden-${Date.now()}-${Math.random()}`,
-        fecha: orden.fecha || new Date().toLocaleDateString('es-CL'),
-        total: orden.total || 0,
-        estado: orden.estadoEnvio || 'Pendiente',
-        productos: orden.detalles ? orden.detalles.map(detalle => ({
-          nombre: detalle.producto ? detalle.producto.nombre : 'Producto no disponible',
-          cantidad: detalle.cantidad || 0,
-          precio: detalle.producto ? detalle.producto.precio : 0
-        })) : [],
-        numeroOrden: orden.numeroOrden || 'N/A'
-      }));
-
-      console.log('Historial formateado:', historialFormateado);
-      setHistorialCompras(historialFormateado);
+      setIsSubmitting(true);
+      
+      await onUpdate(usuario.run, usuarioData);
+      
     } catch (error) {
-      console.error('Error cargando historial de compras:', error);
-      setHistorialCompras([]);
+      alert(`Error al actualizar usuario: ${error.message}`);
     } finally {
-      setCargandoCompras(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Resto del código del componente UsuarioModal se mantiene igual...
-  // [El resto del código del UsuarioModal que ya tenías permanece igual]
-  // Solo se modificó la función cargarHistorialCompras
-
-  // ... [El resto del código del componente UsuarioModal] ...
+  return (
+    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <div className="modal-dialog modal-lg">
+        <div className="modal-content">
+          <div className="modal-header">
+            <h5 className="modal-title">
+              <i className="bi bi-person-gear me-2"></i>
+              Editar Usuario: {usuario?.nombre} {usuario?.apellidos}
+            </h5>
+            <button 
+              type="button" 
+              className="btn-close" 
+              onClick={onClose}
+              disabled={isSubmitting}
+            ></button>
+          </div>
+          <div className="modal-body">
+            {isSubmitting && (
+              <div className="alert alert-info">
+                <div className="d-flex align-items-center">
+                  <div className="spinner-border spinner-border-sm me-2" role="status">
+                    <span className="visually-hidden">Actualizando...</span>
+                  </div>
+                  Actualizando usuario...
+                </div>
+              </div>
+            )}
+            
+            {usuario && (
+              <UsuarioForm
+                usuario={usuario}
+                onSubmit={handleSubmit}
+                onCancel={onClose}
+                isSubmitting={isSubmitting}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default UsuarioModal;

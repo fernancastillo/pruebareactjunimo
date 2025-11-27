@@ -113,6 +113,12 @@ const Carrito = () => {
     }
 
     try {
+      setLoading(true);
+
+      if (!user.run || user.run === 0) {
+        throw new Error('Usuario no tiene RUN válido. Por favor, inicia sesión nuevamente.');
+      }
+
       if (cartItems.length === 0) {
         throw new Error('El carrito está vacío');
       }
@@ -152,7 +158,21 @@ const Carrito = () => {
       }, 500);
 
     } catch (error) {
-      alert('Error al procesar la compra: ' + error.message);
+      let mensajeError = error.message;
+
+      if (error.message.includes('Error interno del servidor')) {
+        mensajeError = 'Hubo un problema con el servidor. Por favor, intenta nuevamente en unos minutos.';
+      } else if (error.message.includes('Error de conexión')) {
+        mensajeError = 'Problema de conexión. Verifica tu internet e intenta nuevamente.';
+      } else if (error.message.includes('Servicio no disponible')) {
+        mensajeError = 'El servicio no está disponible temporalmente. Intenta más tarde.';
+      } else if (error.message.includes('Usuario no encontrado')) {
+        mensajeError = 'Tu usuario no está registrado en el sistema. Contacta al administrador.';
+      }
+
+      alert('Error al procesar la compra: ' + mensajeError);
+    } finally {
+      setLoading(false);
     }
   };
 

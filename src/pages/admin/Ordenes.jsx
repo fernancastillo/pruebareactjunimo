@@ -7,6 +7,27 @@ import ReporteModal from '../../components/admin/ReporteModal';
 import { useOrdenes } from '../../utils/admin/useOrdenes';
 import { generarReporteOrdenes } from '../../utils/admin/reportUtils';
 
+// Componente para mostrar mensajes de éxito
+const SuccessAlert = ({ message, show, onClose }) => {
+  if (!show) return null;
+
+  return (
+    <div className="alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3 shadow-lg"
+      style={{ zIndex: 9999, minWidth: '300px' }} role="alert">
+      <div className="d-flex align-items-center">
+        <i className="bi bi-check-circle-fill me-2 fs-5"></i>
+        <strong>{message}</strong>
+        <button
+          type="button"
+          className="btn-close ms-2"
+          onClick={onClose}
+          aria-label="Cerrar"
+        ></button>
+      </div>
+    </div>
+  );
+};
+
 const Ordenes = () => {
   const {
     ordenes,
@@ -17,6 +38,9 @@ const Ordenes = () => {
     showModal,
     filtros,
     estadisticas,
+    successMessage,
+    showSuccessMessage,
+    clearSuccessMessage,
     handleEdit,
     handleUpdateEstado,
     handleDelete,
@@ -103,6 +127,12 @@ const Ordenes = () => {
 
   return (
     <div className="container-fluid" style={{ padding: '20px', minHeight: '100vh' }}>
+
+      <SuccessAlert
+        message={successMessage}
+        show={showSuccessMessage}
+        onClose={clearSuccessMessage}
+      />
 
       {actionError && (
         <div className="alert alert-danger alert-dismissible fade show" role="alert">
